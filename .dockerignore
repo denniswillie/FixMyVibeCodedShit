@@ -1,0 +1,14 @@
+.git
+.gitignore
+.env
+node_modules
+dist
+coverage
+*.tsbuildinfo
+deploy/env/*.local
+services/website-service/node_modules
+services/website-service/coverage
+services/website-service/*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
