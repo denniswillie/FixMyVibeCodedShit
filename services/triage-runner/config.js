@@ -57,6 +57,7 @@ export function loadRunnerConfig() {
     deployRepoDir: String(process.env.VIBEFIX_DEPLOY_REPO_DIR || "").trim(),
     deployCommand: String(process.env.VIBEFIX_DEPLOY_COMMAND || "").trim(),
     targetBranchOverride: String(process.env.VIBEFIX_TARGET_BRANCH_OVERRIDE || "").trim(),
+    runIntervalSecondsOverride: numberFromEnv("VIBEFIX_RUN_INTERVAL_SECONDS_OVERRIDE", 0),
     dryRun: String(process.env.VIBEFIX_DRY_RUN ?? "false").trim().toLowerCase() === "true",
   };
 }

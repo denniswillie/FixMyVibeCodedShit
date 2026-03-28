@@ -80,21 +80,31 @@ export async function claimDueAgentConfig(client) {
   return mapClaimedAgentConfigRow(result.rows[0] || null);
 }
 
-export async function markRunFinished(client, claimedConfig, nextStatus = "active") {
+function resolveNextRunDelaySeconds(claimedConfig, options = {}) {
+  const overrideSeconds = Number(options.runIntervalSecondsOverride || 0);
+
+  if (overrideSeconds > 0) {
+    return overrideSeconds;
+  }
+
+  return Number(claimedConfig.schedule.everyMinutes || 15) * 60;
+}
+
+export async function markRunFinished(client, claimedConfig, nextStatus = "active", options = {}) {
   await client.query(
     `
       update public.agent_configs
       set
         status = $2,
         last_triaged_at = timezone('utc', now()),
-        next_triage_at = timezone('utc', now()) + ($3 * interval '1 minute'),
+        next_triage_at = timezone('utc', now()) + ($3 * interval '1 second'),
         updated_at = timezone('utc', now())
       where id = $1
     `,
-    [claimedConfig.id, nextStatus, claimedConfig.schedule.everyMinutes]
+    [claimedConfig.id, nextStatus, resolveNextRunDelaySeconds(claimedConfig, options)]
   );
 }
 
-export async function markRunFailed(client, claimedConfig) {
-  await markRunFinished(client, claimedConfig, "active");
+export async function markRunFailed(client, claimedConfig, options = {}) {
+  await markRunFinished(client, claimedConfig, "active", options);
 }

@@ -229,7 +229,9 @@ export async function runForever() {
         try {
           await markClient.query("begin");
           await finishAgentRun(markClient, runId, buildRunPayloadFromOutcome(processedResult));
-          await markRunFinished(markClient, claimedConfig);
+          await markRunFinished(markClient, claimedConfig, "active", {
+            runIntervalSecondsOverride: runnerConfig.runIntervalSecondsOverride,
+          });
           await markClient.query("commit");
         } catch (error) {
           await markClient.query("rollback");
@@ -262,7 +264,9 @@ export async function runForever() {
               errorMessage: error instanceof Error ? error.message : String(error),
             });
           }
-          await markRunFailed(markClient, claimedConfig);
+          await markRunFailed(markClient, claimedConfig, {
+            runIntervalSecondsOverride: runnerConfig.runIntervalSecondsOverride,
+          });
           await markClient.query("commit");
         } catch (markError) {
           await markClient.query("rollback");

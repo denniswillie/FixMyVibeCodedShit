@@ -1,5 +1,6 @@
 import {
   mapClaimedAgentConfigRow,
+  markRunFinished,
 } from "./agentConfigs.js";
 
 describe("agentConfigs repository helpers", () => {
@@ -42,5 +43,30 @@ describe("agentConfigs repository helpers", () => {
       },
       status: "running",
     });
+  });
+
+  it("can reschedule the next run using a seconds override for demo mode", async () => {
+    const client = {
+      query: vi.fn().mockResolvedValue({ rows: [] }),
+    };
+
+    await markRunFinished(
+      client,
+      {
+        id: "cfg_123",
+        schedule: {
+          everyMinutes: 15,
+        },
+      },
+      "active",
+      {
+        runIntervalSecondsOverride: 10,
+      }
+    );
+
+    expect(client.query).toHaveBeenCalledWith(
+      expect.stringContaining("interval '1 second'"),
+      ["cfg_123", "active", 10]
+    );
   });
 });
