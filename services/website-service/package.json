@@ -1,0 +1,24 @@
+{
+  "name": "vibefix-website-service",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Express backend for Vibefix website auth and onboarding storage.",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "dev": "nodemon app.js",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "pg": "^8.11.5",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.0",
+    "vitest": "^4.1.1"
+  }
+}
