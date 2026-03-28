@@ -63,4 +63,29 @@ describe("CredentialsForm", () => {
 
     expect(onConnectGitHub).toHaveBeenCalledTimes(1);
   });
+
+  it("propagates AWS target field changes to the parent draft", async () => {
+    const user = userEvent.setup();
+    const draft = buildDefaultDraft("Europe/Dublin");
+
+    const Harness = () => {
+      const [value, setValue] = useState(draft);
+      return (
+        <CredentialsForm
+          value={value}
+          disabled={false}
+          onConnectGitHub={vi.fn()}
+          onChange={setValue}
+        />
+      );
+    };
+
+    render(<Harness />);
+
+    const instanceIdInput = screen.getByLabelText(/ec2 instance id/i);
+    await user.clear(instanceIdInput);
+    await user.type(instanceIdInput, "i-0123456789abcdef0");
+
+    expect(instanceIdInput).toHaveValue("i-0123456789abcdef0");
+  });
 });

@@ -1,5 +1,7 @@
 import type { ChangeEvent } from "react";
+import { useState } from "react";
 
+import { parseAwsCredentialsFile } from "@/lib/awsCredentials";
 import { getMissingFields, isDraftReady } from "@/lib/onboarding";
 import type { OnboardingDraft } from "@/types/onboarding";
 
@@ -24,6 +26,7 @@ export const CredentialsForm = ({
   onConnectGitHub,
   onChange,
 }: CredentialsFormProps) => {
+  const [awsUploadMessage, setAwsUploadMessage] = useState<string | null>(null);
   const missingFields = getMissingFields(value);
   const ready = isDraftReady(value);
   const githubConnected = Boolean(value.github.connection?.installationId);
@@ -40,6 +43,34 @@ export const CredentialsForm = ({
       });
     };
 
+  const handleAwsCredentialsUpload = async (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+
+    if (!file) {
+      return;
+    }
+
+    try {
+      const parsed = parseAwsCredentialsFile(await file.text());
+      onChange({
+        ...value,
+        aws: {
+          ...value.aws,
+          accessKeyId: parsed.accessKeyId,
+          secretAccessKey: parsed.secretAccessKey,
+          sessionToken: parsed.sessionToken,
+        },
+      });
+      setAwsUploadMessage(`${file.name} parsed. Review the instance details below and save.`);
+    } catch (error) {
+      setAwsUploadMessage(
+        error instanceof Error ? error.message : "Unable to read that AWS credentials file."
+      );
+    } finally {
+      event.target.value = "";
+    }
+  };
+
   return (
     <section className="rounded-[2rem] border border-ink/10 bg-white px-6 py-7 shadow-panel animate-panel-reveal">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -51,13 +82,9 @@ export const CredentialsForm = ({
             Connect the operator.
           </h2>
           <p className="mt-3 max-w-2xl text-sm leading-7 text-ink/68">
-            The first Vibefix operator uses direct SSH into EC2 to run
-            {" "}
-            <span className="mx-1 font-mono text-[0.8rem] text-ink">
-              docker logs --tail &lt;num&gt; &lt;service&gt;
-            </span>
-            . So the website collects the box details and SSH key, not an AWS
-            access key.
+            Keep the setup literal: GitHub App for repo writes, then one AWS
+            credentials file with SSM access plus the exact EC2 instance and Docker
+            service the worker should inspect.
           </p>
         </div>
         <span
@@ -142,66 +169,106 @@ export const CredentialsForm = ({
 
         <fieldset disabled={disabled} className="grid gap-5 border-t border-ink/8 pt-7">
           <legend className="font-display text-sm font-semibold uppercase tracking-[0.18em] text-ink">
-            EC2 log access
+            AWS + EC2 log access
           </legend>
-          <div className="grid gap-5 md:grid-cols-3">
-            <label className="md:col-span-2">
-              <span className={labelClassName}>Host</span>
+          <div className="rounded-[1.4rem] border border-ink/10 bg-[#f8f1e3] px-5 py-5">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div className="max-w-xl">
+                <p className={labelClassName}>AWS credentials file</p>
+                <p className="mt-2 text-sm leading-7 text-ink/68">
+                  Upload the AWS CLI credentials file or IAM access-key CSV for a
+                  user that can call SSM on the target instance.
+                </p>
+                <p className="mt-3 text-xs leading-6 text-ink/56">
+                  Vibefix stores the parsed key id, secret, optional session token,
+                  plus the EC2 target details below.
+                </p>
+              </div>
+              <label className="inline-flex min-h-12 cursor-pointer items-center justify-center rounded-full bg-ink px-6 text-center font-display text-xs font-semibold uppercase tracking-[0.16em] text-sand transition hover:bg-[#10211e]">
+                Upload AWS credentials file
+                <input
+                  type="file"
+                  accept=".txt,.ini,.csv"
+                  onChange={(event) => void handleAwsCredentialsUpload(event)}
+                  disabled={disabled}
+                  className="sr-only"
+                />
+              </label>
+            </div>
+            {awsUploadMessage ? (
+              <p className="mt-4 text-xs leading-6 text-ink/56">{awsUploadMessage}</p>
+            ) : null}
+          </div>
+          <div className="grid gap-5 md:grid-cols-2">
+            <label>
+              <span className={labelClassName}>AWS access key id</span>
               <input
-                value={value.ssh.host}
-                onChange={updateField("ssh", "host")}
+                value={value.aws.accessKeyId}
+                onChange={updateField("aws", "accessKeyId")}
                 className={inputClassName}
-                placeholder="ec2-12-34-56-78.compute.amazonaws.com"
+                placeholder="AKIA..."
               />
             </label>
             <label>
-              <span className={labelClassName}>SSH port</span>
+              <span className={labelClassName}>AWS secret access key</span>
               <input
-                value={value.ssh.port}
-                onChange={updateField("ssh", "port")}
+                type="password"
+                value={value.aws.secretAccessKey}
+                onChange={updateField("aws", "secretAccessKey")}
                 className={inputClassName}
-                placeholder="22"
+                placeholder="Secret access key"
               />
             </label>
           </div>
           <div className="grid gap-5 md:grid-cols-3">
             <label>
-              <span className={labelClassName}>SSH user</span>
+              <span className={labelClassName}>AWS region</span>
               <input
-                value={value.ssh.username}
-                onChange={updateField("ssh", "username")}
+                value={value.aws.region}
+                onChange={updateField("aws", "region")}
                 className={inputClassName}
-                placeholder="ubuntu"
+                placeholder="eu-west-1"
+              />
+            </label>
+            <label>
+              <span className={labelClassName}>EC2 instance id</span>
+              <input
+                value={value.aws.instanceId}
+                onChange={updateField("aws", "instanceId")}
+                className={inputClassName}
+                placeholder="i-0abc1234def567890"
               />
             </label>
             <label>
               <span className={labelClassName}>Docker service</span>
               <input
-                value={value.ssh.dockerService}
-                onChange={updateField("ssh", "dockerService")}
+                value={value.aws.dockerService}
+                onChange={updateField("aws", "dockerService")}
                 className={inputClassName}
                 placeholder="web"
               />
             </label>
+          </div>
+          <div className="grid gap-5 md:grid-cols-2">
             <label>
               <span className={labelClassName}>Tail lines</span>
               <input
-                value={value.ssh.logTail}
-                onChange={updateField("ssh", "logTail")}
+                value={value.aws.logTail}
+                onChange={updateField("aws", "logTail")}
                 className={inputClassName}
                 placeholder="200"
               />
             </label>
+            <label>
+              <span className={labelClassName}>Session token (optional)</span>
+              <input
+                value={value.aws.sessionToken}
+                onChange={updateField("aws", "sessionToken")}
+                className={inputClassName}
+                placeholder="Optional STS session token"
+              />
+            </label>
           </div>
-          <label>
-            <span className={labelClassName}>SSH private key</span>
-            <textarea
-              value={value.ssh.privateKey}
-              onChange={updateField("ssh", "privateKey")}
-              className={`${inputClassName} min-h-36 resize-y font-mono text-[0.82rem] leading-6`}
-              placeholder="-----BEGIN OPENSSH PRIVATE KEY-----"
-            />
-          </label>
         </fieldset>
 
         <fieldset disabled={disabled} className="grid gap-5 border-t border-ink/8 pt-7">

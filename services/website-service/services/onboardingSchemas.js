@@ -24,11 +24,12 @@ const onboardingConfigSchema = z.object({
       .nullable()
       .optional()
   }),
-  ssh: z.object({
-    host: z.string().trim().min(1, "EC2 host is required.").max(255),
-    port: positiveIntegerField("SSH port", 65535),
-    username: z.string().trim().min(1, "SSH username is required.").max(255),
-    privateKey: z.string().trim().min(1, "SSH private key is required.").max(20000),
+  aws: z.object({
+    accessKeyId: z.string().trim().min(1, "AWS access key id is required.").max(255),
+    secretAccessKey: z.string().trim().min(1, "AWS secret access key is required.").max(4096),
+    sessionToken: z.string().trim().max(8192).default(""),
+    region: z.string().trim().min(1, "AWS region is required.").max(255),
+    instanceId: z.string().trim().min(1, "EC2 instance id is required.").max(255),
     dockerService: z.string().trim().min(1, "Docker service is required.").max(255),
     logTail: positiveIntegerField("Log tail", 100000)
   }),

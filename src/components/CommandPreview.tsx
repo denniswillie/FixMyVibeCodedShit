@@ -1,4 +1,4 @@
-import { buildAgentRunbook, buildShellCommand, isDraftReady } from "@/lib/onboarding";
+import { buildAgentRunbook, buildProbeCommand, isDraftReady } from "@/lib/onboarding";
 import type { OnboardingDraft } from "@/types/onboarding";
 
 interface CommandPreviewProps {
@@ -25,10 +25,10 @@ export const CommandPreview = ({ value }: CommandPreviewProps) => {
 
       <div className="mt-8 rounded-[1.6rem] border border-white/10 bg-black/30 p-5">
         <p className="font-display text-xs font-semibold uppercase tracking-[0.18em] text-sand/42">
-          SSH probe command
+          SSM probe command
         </p>
         <pre className="mt-3 overflow-x-auto whitespace-pre-wrap font-mono text-sm leading-7 text-sand/84">
-          <code>{buildShellCommand(value)}</code>
+          <code>{buildProbeCommand(value)}</code>
         </pre>
       </div>
 
@@ -53,9 +53,9 @@ export const CommandPreview = ({ value }: CommandPreviewProps) => {
           Access note
         </p>
         <p className="mt-3 text-sm leading-7 text-sand/72">
-          Direct SSH into EC2 only needs the host, SSH user, port, and private
-          key. Add AWS keys later only if you want instance discovery, SSM, or
-          other AWS API calls.
+          The worker now owns the AWS hop directly. Daytona only sees the log
+          excerpt, the repo, and the repair brief, which avoids the shared-runner
+          EC2 networking problems we hit earlier.
         </p>
       </div>
 

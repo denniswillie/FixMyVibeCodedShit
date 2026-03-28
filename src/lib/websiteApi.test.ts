@@ -51,11 +51,12 @@ describe("websiteApi", () => {
         accessToken: "ghp_demo",
         connection: null,
       },
-      ssh: {
-        host: "ec2-1-2-3-4.compute.amazonaws.com",
-        port: "22",
-        username: "ubuntu",
-        privateKey: "private-key",
+      aws: {
+        accessKeyId: "AKIADEMO123",
+        secretAccessKey: "secret-demo",
+        sessionToken: "",
+        region: "eu-west-1",
+        instanceId: "i-0abc1234def567890",
         dockerService: "web",
         logTail: "200",
       },

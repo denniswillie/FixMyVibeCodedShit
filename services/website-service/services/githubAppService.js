@@ -140,6 +140,7 @@ async function fetchGithubInstallationContext(installationId) {
 
 module.exports = {
   buildGithubInstallationUrl,
+  createInstallationAccessToken,
   createGithubAppJwt,
   createOAuthStateToken,
   fetchGithubInstallationContext,

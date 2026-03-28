@@ -1,0 +1,23 @@
+{
+  "name": "vibefix-triage-runner",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Scheduled Vibefix worker that polls logs and launches Daytona-backed repair runs.",
+  "main": "app.js",
+  "scripts": {
+    "start": "node app.js",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@aws-sdk/client-ssm": "^3.1019.0",
+    "@daytonaio/sdk": "^0.158.0",
+    "dotenv": "^16.6.1",
+    "openai": "^6.33.0",
+    "pg": "^8.16.3"
+  },
+  "devDependencies": {
+    "vitest": "^4.1.1"
+  }
+}

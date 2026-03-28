@@ -34,11 +34,12 @@ export interface GitHubRepository {
   defaultBranch: string;
 }
 
-export interface SshConfig {
-  host: string;
-  port: string;
-  username: string;
-  privateKey: string;
+export interface AwsConfig {
+  accessKeyId: string;
+  secretAccessKey: string;
+  sessionToken: string;
+  region: string;
+  instanceId: string;
   dockerService: string;
   logTail: string;
 }
@@ -50,6 +51,6 @@ export interface ScheduleConfig {
 
 export interface OnboardingDraft {
   github: GitHubConfig;
-  ssh: SshConfig;
+  aws: AwsConfig;
   schedule: ScheduleConfig;
 }

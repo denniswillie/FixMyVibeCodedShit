@@ -55,6 +55,11 @@ create table if not exists public.agent_configs (
   github_repository_selection text not null default '',
   github_repo_count integer not null default 0,
   github_connected_at timestamptz,
+  aws_access_key_id text not null default '',
+  aws_secret_access_key text not null default '',
+  aws_session_token text not null default '',
+  aws_region text not null default 'eu-west-1',
+  ec2_instance_id text not null default '',
   ec2_host text not null default '',
   ec2_port integer not null default 22,
   ec2_username text not null default '',
@@ -75,7 +80,7 @@ create table if not exists public.agent_configs (
   constraint agent_configs_check_every_minutes_check
     check (check_every_minutes >= 1),
   constraint agent_configs_status_check
-    check (status in ('draft', 'active', 'paused'))
+    check (status in ('draft', 'active', 'paused', 'running'))
 );
 
 create index if not exists agent_configs_status_next_triage_idx
@@ -101,6 +106,28 @@ alter table if exists public.agent_configs
 
 alter table if exists public.agent_configs
   add column if not exists github_connected_at timestamptz;
+
+alter table if exists public.agent_configs
+  add column if not exists aws_access_key_id text not null default '';
+
+alter table if exists public.agent_configs
+  add column if not exists aws_secret_access_key text not null default '';
+
+alter table if exists public.agent_configs
+  add column if not exists aws_session_token text not null default '';
+
+alter table if exists public.agent_configs
+  add column if not exists aws_region text not null default 'eu-west-1';
+
+alter table if exists public.agent_configs
+  add column if not exists ec2_instance_id text not null default '';
+
+alter table if exists public.agent_configs
+  drop constraint if exists agent_configs_status_check;
+
+alter table if exists public.agent_configs
+  add constraint agent_configs_status_check
+    check (status in ('draft', 'active', 'paused', 'running'));
 
 create index if not exists agent_configs_github_installation_idx
   on public.agent_configs (github_installation_id)

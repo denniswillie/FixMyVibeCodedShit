@@ -16,11 +16,12 @@ describe("onboardingSchemas", () => {
           connectedAt: "2026-03-28T14:00:00.000Z"
         }
       },
-      ssh: {
-        host: "ec2-1-2-3-4.compute.amazonaws.com",
-        port: "22",
-        username: "ubuntu",
-        privateKey: "-----BEGIN OPENSSH PRIVATE KEY-----demo",
+      aws: {
+        accessKeyId: "AKIADEMO123",
+        secretAccessKey: "secret-demo",
+        sessionToken: "",
+        region: "eu-west-1",
+        instanceId: "i-0abc1234def567890",
         dockerService: "web",
         logTail: "250"
       },
@@ -30,8 +31,8 @@ describe("onboardingSchemas", () => {
       }
     });
 
-    expect(parsed.ssh.port).toBe(22);
-    expect(parsed.ssh.logTail).toBe(250);
+    expect(parsed.aws.region).toBe("eu-west-1");
+    expect(parsed.aws.logTail).toBe(250);
     expect(parsed.schedule.everyMinutes).toBe(15);
   });
 
@@ -44,11 +45,12 @@ describe("onboardingSchemas", () => {
           accessToken: "",
           connection: null
         },
-        ssh: {
-          host: "ec2-1-2-3-4.compute.amazonaws.com",
-          port: "22",
-          username: "ubuntu",
-          privateKey: "-----BEGIN OPENSSH PRIVATE KEY-----demo",
+        aws: {
+          accessKeyId: "AKIADEMO123",
+          secretAccessKey: "secret-demo",
+          sessionToken: "",
+          region: "eu-west-1",
+          instanceId: "i-0abc1234def567890",
           dockerService: "web",
           logTail: "250"
         },

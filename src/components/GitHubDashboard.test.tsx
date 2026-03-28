@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 
 import { GitHubDashboard } from "@/components/GitHubDashboard";
+import { buildDefaultDraft } from "@/lib/onboarding";
 
 describe("GitHubDashboard", () => {
   it("renders the connected repositories", () => {
@@ -35,6 +36,7 @@ describe("GitHubDashboard", () => {
             defaultBranch: "trunk",
           },
         ]}
+        config={buildDefaultDraft("Europe/Dublin")}
         isLoading={false}
         onBackToSetup={vi.fn()}
         onSignOut={vi.fn()}
@@ -59,6 +61,7 @@ describe("GitHubDashboard", () => {
         }}
         connection={null}
         repos={[]}
+        config={buildDefaultDraft("Europe/Dublin")}
         isLoading={false}
         onBackToSetup={vi.fn()}
         onSignOut={vi.fn()}

@@ -1,11 +1,17 @@
 import { ArrowLeft, ArrowUpRight, Github, RotateCcw } from "lucide-react";
 
-import type { AuthenticatedUser, GitHubConnection, GitHubRepository } from "@/types/onboarding";
+import type {
+  AuthenticatedUser,
+  GitHubConnection,
+  GitHubRepository,
+  OnboardingDraft,
+} from "@/types/onboarding";
 
 interface GitHubDashboardProps {
   user: AuthenticatedUser;
   connection: GitHubConnection | null;
   repos: GitHubRepository[];
+  config: OnboardingDraft;
   isLoading: boolean;
   message?: string | null;
   onBackToSetup: () => void;
@@ -21,6 +27,7 @@ export const GitHubDashboard = ({
   user,
   connection,
   repos,
+  config,
   isLoading,
   message = null,
   onBackToSetup,
@@ -85,6 +92,12 @@ export const GitHubDashboard = ({
                   {message}
                 </p>
               ) : null}
+              <div className="mt-6 grid gap-3 text-sm leading-7 text-sand/70 sm:grid-cols-2">
+                <p>AWS region: {config.aws.region || "Pending"}</p>
+                <p>Instance: {config.aws.instanceId || "Pending"}</p>
+                <p>Docker service: {config.aws.dockerService || "Pending"}</p>
+                <p>Schedule: every {config.schedule.everyMinutes || "15"} minutes</p>
+              </div>
             </div>
 
             <div className="rounded-[2.2rem] border border-[#ffb07a]/18 bg-[#1b2623] px-6 py-7">

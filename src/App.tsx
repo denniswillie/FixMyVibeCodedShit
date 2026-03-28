@@ -23,7 +23,7 @@ const operators = [
   {
     icon: Server,
     title: "Read the real box",
-    body: "This demo operator connects over SSH and reads the Docker service you choose instead of guessing from synthetic health checks.",
+    body: "The worker runs the SSM log probe itself against the EC2 instance you specify instead of guessing from synthetic health checks.",
   },
   {
     icon: Github,
@@ -53,14 +53,15 @@ function normalizeDraft(config: OnboardingDraft): OnboardingDraft {
           }
         : null,
     },
-    ssh: {
-      ...config.ssh,
-      host: String(config.ssh.host),
-      port: String(config.ssh.port),
-      username: String(config.ssh.username),
-      privateKey: String(config.ssh.privateKey),
-      dockerService: String(config.ssh.dockerService),
-      logTail: String(config.ssh.logTail),
+    aws: {
+      ...config.aws,
+      accessKeyId: String(config.aws.accessKeyId),
+      secretAccessKey: String(config.aws.secretAccessKey),
+      sessionToken: String(config.aws.sessionToken),
+      region: String(config.aws.region),
+      instanceId: String(config.aws.instanceId),
+      dockerService: String(config.aws.dockerService),
+      logTail: String(config.aws.logTail),
     },
     schedule: {
       everyMinutes: String(config.schedule.everyMinutes),
@@ -97,7 +98,7 @@ const App = () => {
     } else {
       window.history.pushState({}, document.title, nextPath);
     }
-    setPathname(window.location.pathname || "/");
+    setPathname(nextPath);
   };
 
   useEffect(() => {
@@ -132,7 +133,7 @@ const App = () => {
         if (authStatus === "google_success") {
           setMessage("Google sign-in completed. Enter the operator credentials below.");
         } else if (githubStatus === "connected") {
-          setMessage("GitHub repo access connected. Finish the EC2 details and save the operator config.");
+          setMessage("GitHub repo access connected. Upload the AWS credentials file, fill the EC2 target, and save the operator config.");
         } else if (authError) {
           setMessage(`Google sign-in failed: ${authError.split("_").join(" ")}.`);
         } else if (githubError) {
@@ -175,10 +176,27 @@ const App = () => {
           setGithubConnection(normalizedConfig.github.connection);
         });
 
+        const normalizedConfig = normalizeDraft(onboarding.config);
+        const ready = isDraftReady(normalizedConfig);
+
+        if (!ready && window.location.pathname === "/dashboard") {
+          navigateTo("/", { replace: true });
+          setAuthLoading(false);
+          setConfigLoading(false);
+          return;
+        }
+
+        if (ready && window.location.pathname !== "/dashboard") {
+          navigateTo("/dashboard", { replace: true });
+          setAuthLoading(false);
+          setConfigLoading(false);
+          return;
+        }
+
         if (window.location.pathname === "/dashboard") {
           setGithubReposLoading(true);
 
-          if (onboarding.config.github.connection?.installationId) {
+          if (normalizedConfig.github.connection?.installationId) {
             const githubAccess = await getGithubRepos();
 
             if (!isActive) {
@@ -275,7 +293,12 @@ const App = () => {
         setGithubConnection(normalizedConfig.github.connection);
       });
       setSaveState("saved");
-      setMessage("Operator credentials saved. The worker can pick this user up on the next run.");
+      if (isDraftReady(normalizeDraft(result.config))) {
+        setMessage("Operator credentials saved. The worker can pick this user up on the next run.");
+        navigateTo("/dashboard");
+      } else {
+        setMessage("Operator credentials saved. Finish the remaining setup fields to arm the worker.");
+      }
     } catch (error) {
       setSaveState("error");
       setMessage(
@@ -292,6 +315,7 @@ const App = () => {
         user={user}
         connection={githubConnection}
         repos={githubRepos}
+        config={draft}
         isLoading={authLoading || configLoading || githubReposLoading}
         message={message}
         onBackToSetup={() => navigateTo("/")}
@@ -326,9 +350,9 @@ const App = () => {
               </h2>
               <p className="mt-4 max-w-2xl text-base leading-8 text-ink/68">
                 Google sign-in identifies the founder. GitHub grants repo
-                write-back. EC2 SSH grants log access. The worker can turn the
-                cadence fields into a future `scheduled_run_time` job without
-                changing the website model.
+                write-back. One uploaded AWS credentials file grants SSM log access.
+                The worker can turn the cadence fields into the same scheduled-run
+                pattern you already use elsewhere.
               </p>
             </div>
 
@@ -408,13 +432,12 @@ const App = () => {
                 Product framing
               </p>
               <h2 className="mt-4 font-serif text-3xl font-semibold text-sand sm:text-4xl">
-                For the demo, skip AWS keys and stay brutally literal.
+                Keep Daytona on the code path, not the infra hop.
               </h2>
               <p className="mt-4 text-sm leading-7 text-sand/68 sm:text-base">
-                If the agent is just SSHing to one known EC2 instance and running
-                `docker logs`, the website should ask for SSH details only. Add
-                AWS IAM later when you need discovery, SSM, or infrastructure
-                automation.
+                The worker owns AWS and SSM directly. Daytona only receives the
+                log excerpt, repo context, and repair brief, which is the simpler
+                shape that actually fits the shared runner constraints.
               </p>
             </div>
             <a

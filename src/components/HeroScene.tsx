@@ -9,7 +9,7 @@ interface HeroSceneProps {
 }
 
 const logLines = [
-  "[triage] ssh ubuntu@ec2-12-34-56-78.compute.amazonaws.com",
+  "[triage] aws ssm send-command --instance-ids i-0abc1234def567890",
   "[tail] docker logs --tail 200 web",
   "[error] payment webhook 500 after checkout session recovery",
   "[decision] open Daytona workspace with GPT-5.4",
@@ -67,8 +67,8 @@ export const HeroScene = ({
             Your launch keeps breathing even when the vibecode breaks.
           </h1>
           <p className="mt-6 max-w-xl text-base leading-8 text-sand/72 sm:text-lg">
-            This demo operator signs the founder in with Google, SSHes into EC2,
-            tails Docker logs, and only opens a Daytona repair run when the app is
+            This demo operator signs the founder in with Google, reads the real EC2
+            logs through SSM, and only opens a Daytona repair run when the app is
             actually broken.
           </p>
           <div className="mt-8 flex flex-wrap items-center gap-4">

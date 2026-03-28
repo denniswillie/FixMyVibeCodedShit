@@ -3,10 +3,19 @@ import userEvent from "@testing-library/user-event";
 
 import App from "@/App";
 
-function mockLocation({ pathname = "/", search = "", assign = vi.fn() } = {}) {
+function setRoute(pathname = "/", search = "") {
+  window.history.replaceState({}, document.title, `${pathname}${search}`);
+}
+
+function mockAssign() {
+  const assign = vi.fn();
+
   Object.defineProperty(window, "location", {
     configurable: true,
-    value: { assign, pathname, search },
+    value: {
+      ...window.location,
+      assign,
+    },
   });
 
   return assign;
@@ -16,111 +25,12 @@ describe("App", () => {
   beforeEach(() => {
     window.localStorage.clear();
     vi.stubGlobal("fetch", vi.fn());
-    mockLocation();
+    setRoute("/");
   });
 
   afterEach(() => {
+    vi.restoreAllMocks();
     vi.unstubAllGlobals();
-  });
-
-  it("renders the dashboard with the connected github repositories", async () => {
-    vi.mocked(fetch)
-      .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({
-            authenticated: true,
-            user: {
-              id: 7,
-              email: "founder@vibefix.demo",
-              fullName: "Launch Founder",
-            },
-          }),
-          {
-            status: 200,
-            headers: { "Content-Type": "application/json" },
-          }
-        )
-      )
-      .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({
-            config: {
-              github: {
-                repoUrl: "https://github.com/acme/api",
-                branch: "main",
-                accessToken: "",
-                connection: {
-                  installationId: 42,
-                  accountLogin: "acme",
-                  targetType: "Organization",
-                  repositorySelection: "selected",
-                  repoCount: 2,
-                  connectedAt: "2026-03-28T14:00:00.000Z",
-                },
-              },
-              ssh: {
-                host: "ec2-1-2-3-4.compute.amazonaws.com",
-                port: 22,
-                username: "ubuntu",
-                privateKey: "private-key",
-                dockerService: "web",
-                logTail: 200,
-              },
-              schedule: {
-                everyMinutes: 15,
-                timezone: "Europe/Dublin",
-              },
-            },
-          }),
-          {
-            status: 200,
-            headers: { "Content-Type": "application/json" },
-          }
-        )
-      )
-      .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({
-            connected: true,
-            connection: {
-              installationId: 42,
-              accountLogin: "acme",
-              targetType: "Organization",
-              repositorySelection: "selected",
-              repoCount: 2,
-              connectedAt: "2026-03-28T14:00:00.000Z",
-            },
-            repos: [
-              {
-                id: 1,
-                name: "api",
-                fullName: "acme/api",
-                htmlUrl: "https://github.com/acme/api",
-                defaultBranch: "main",
-              },
-              {
-                id: 2,
-                name: "worker",
-                fullName: "acme/worker",
-                htmlUrl: "https://github.com/acme/worker",
-                defaultBranch: "trunk",
-              },
-            ],
-          }),
-          {
-            status: 200,
-            headers: { "Content-Type": "application/json" },
-          }
-        )
-      );
-
-    mockLocation({ pathname: "/dashboard", search: "?github=connected" });
-
-    render(<App />);
-
-    expect(await screen.findByText(/2 repos visible/i)).toBeInTheDocument();
-    expect(screen.getByText(/acme\/api/i)).toBeInTheDocument();
-    expect(screen.getByText(/acme\/worker/i)).toBeInTheDocument();
   });
 
   it("loads the authenticated session and enables onboarding", async () => {
@@ -158,11 +68,12 @@ describe("App", () => {
                   connectedAt: "2026-03-28T14:00:00.000Z",
                 },
               },
-              ssh: {
-                host: "ec2-1-2-3-4.compute.amazonaws.com",
-                port: 22,
-                username: "ubuntu",
-                privateKey: "private-key",
+              aws: {
+                accessKeyId: "",
+                secretAccessKey: "",
+                sessionToken: "",
+                region: "eu-west-1",
+                instanceId: "",
                 dockerService: "web",
                 logTail: 200,
               },
@@ -196,7 +107,7 @@ describe("App", () => {
         headers: { "Content-Type": "application/json" },
       })
     );
-    const assign = mockLocation();
+    const assign = mockAssign();
     const user = userEvent.setup();
 
     render(<App />);
@@ -236,11 +147,12 @@ describe("App", () => {
                 accessToken: "",
                 connection: null,
               },
-              ssh: {
-                host: "ec2-1-2-3-4.compute.amazonaws.com",
-                port: 22,
-                username: "ubuntu",
-                privateKey: "private-key",
+              aws: {
+                accessKeyId: "",
+                secretAccessKey: "",
+                sessionToken: "",
+                region: "eu-west-1",
+                instanceId: "",
                 dockerService: "web",
                 logTail: 200,
               },
@@ -257,7 +169,7 @@ describe("App", () => {
         )
       );
 
-    const assign = mockLocation();
+    const assign = mockAssign();
     const user = userEvent.setup();
 
     render(<App />);

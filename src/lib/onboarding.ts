@@ -9,11 +9,12 @@ export const buildDefaultDraft = (
     accessToken: "",
     connection: null,
   },
-  ssh: {
-    host: "ec2-12-34-56-78.compute.amazonaws.com",
-    port: "22",
-    username: "ubuntu",
-    privateKey: "",
+  aws: {
+    accessKeyId: "",
+    secretAccessKey: "",
+    sessionToken: "",
+    region: "eu-west-1",
+    instanceId: "i-0abc1234def567890",
     dockerService: "web",
     logTail: "200",
   },
@@ -34,15 +35,23 @@ export const getMissingFields = (draft: OnboardingDraft) => {
     missing.push("GitHub repo access");
   }
 
-  if (!draft.ssh.host.trim()) {
-    missing.push("EC2 host");
+  if (!draft.aws.accessKeyId.trim()) {
+    missing.push("AWS access key id");
   }
 
-  if (!draft.ssh.privateKey.trim()) {
-    missing.push("SSH private key");
+  if (!draft.aws.secretAccessKey.trim()) {
+    missing.push("AWS secret access key");
   }
 
-  if (!draft.ssh.dockerService.trim()) {
+  if (!draft.aws.region.trim()) {
+    missing.push("AWS region");
+  }
+
+  if (!draft.aws.instanceId.trim()) {
+    missing.push("EC2 instance id");
+  }
+
+  if (!draft.aws.dockerService.trim()) {
     missing.push("Docker service");
   }
 
@@ -52,16 +61,19 @@ export const getMissingFields = (draft: OnboardingDraft) => {
 export const isDraftReady = (draft: OnboardingDraft) =>
   getMissingFields(draft).length === 0;
 
-export const buildShellCommand = (draft: OnboardingDraft) =>
+export const buildProbeCommand = (draft: OnboardingDraft) =>
   [
-    `ssh -p ${draft.ssh.port || "22"} ${draft.ssh.username || "ubuntu"}@${draft.ssh.host || "<host>"}`,
-    `docker logs --tail ${draft.ssh.logTail || "200"} ${draft.ssh.dockerService || "<service>"}`,
-  ].join(" && ");
+    "aws ssm send-command",
+    `  --instance-ids ${draft.aws.instanceId || "<instance-id>"}`,
+    "  --document-name AWS-RunShellScript",
+    `  --parameters commands='docker logs --tail ${draft.aws.logTail || "200"} ${draft.aws.dockerService || "<service>"}'`,
+    `  --region ${draft.aws.region || "<region>"}`,
+  ].join(" \\\n");
 
 export const buildAgentRunbook = (draft: OnboardingDraft) => [
   `Worker checks the queue every ${draft.schedule.everyMinutes || "15"} minutes.`,
-  `Runner opens an SSH session to ${draft.ssh.host || "your EC2 host"} and tails ${draft.ssh.dockerService || "the selected Docker service"} logs.`,
+  `Runner uses the uploaded AWS credentials to call SSM against ${draft.aws.instanceId || "the selected EC2 instance"} in ${draft.aws.region || "your AWS region"} and tails ${draft.aws.dockerService || "the selected Docker service"} logs.`,
   draft.github.connection?.installationId
-    ? `If errors appear, Vibefix opens a Daytona workspace with GPT-5.4 and pushes the fix through the connected GitHub App installation on ${draft.github.connection.accountLogin || "your account"}.`
-    : "If errors appear, Vibefix opens a Daytona workspace with GPT-5.4, patches the repo, and pushes a manual deployment fix.",
+    ? `If errors appear, Vibefix opens a Daytona workspace with GPT-5.4, investigates the repo, and pushes a candidate fix through the connected GitHub App installation on ${draft.github.connection.accountLogin || "your account"}.`
+    : "If errors appear, Vibefix opens a Daytona workspace with GPT-5.4, investigates the repo, and prepares a repo fix with the supplied GitHub credential.",
 ];
