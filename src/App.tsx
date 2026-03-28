@@ -113,6 +113,7 @@ const App = () => {
   const [githubRepos, setGithubRepos] = useState<GitHubRepository[]>([]);
   const [githubConnection, setGithubConnection] = useState<GitHubConnection | null>(null);
   const [latestRun, setLatestRun] = useState<AgentRunUpdate | null>(null);
+  const [latestFixRun, setLatestFixRun] = useState<AgentRunUpdate | null>(null);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [message, setMessage] = useState<string | null>(null);
   const deferredDraft = useDeferredValue(draft);
@@ -180,6 +181,7 @@ const App = () => {
             setGithubRepos([]);
             setGithubConnection(null);
             setLatestRun(null);
+            setLatestFixRun(null);
           });
           if (window.location.pathname === "/dashboard") {
             navigateTo("/", { replace: true });
@@ -209,6 +211,7 @@ const App = () => {
           setDraft(normalizedConfig);
           setGithubConnection(normalizedConfig.github.connection);
           setLatestRun(normalizeLatestRun(onboarding.latestRun));
+          setLatestFixRun(normalizeLatestRun(onboarding.latestFixRun));
         });
 
         const normalizedConfig = normalizeDraft(onboarding.config);
@@ -305,6 +308,7 @@ const App = () => {
       setGithubRepos([]);
       setGithubConnection(null);
       setLatestRun(null);
+      setLatestFixRun(null);
     });
     setSaveState("idle");
     setMessage("Signed out. Sign in again to continue configuring the operator.");
@@ -328,6 +332,7 @@ const App = () => {
         setDraft(normalizedConfig);
         setGithubConnection(normalizedConfig.github.connection);
         setLatestRun(normalizeLatestRun(result.latestRun));
+        setLatestFixRun(normalizeLatestRun(result.latestFixRun));
       });
       setSaveState("saved");
       if (isDraftReady(normalizeDraft(result.config))) {
@@ -356,6 +361,7 @@ const App = () => {
         isLoading={authLoading || configLoading || githubReposLoading}
         message={message}
         latestRun={latestRun}
+        latestFixRun={latestFixRun}
         onBackToSetup={() => navigateTo("/")}
         onSignOut={() => void handleSignOut()}
         onConnectGitHub={handleGithubConnect}

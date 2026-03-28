@@ -1,12 +1,15 @@
 import {
+  buildObservedPushResult,
   buildCloneCommand,
   buildExhaustedIterationsResult,
   buildGitConfigCommand,
+  buildRepoStateCommand,
   buildResponseCreateParams,
   buildToolDefinitions,
   CONTEXT_ROOT,
   hasCriticalRuntimeFailure,
   normalizeRepairResult,
+  parseRepoStateOutput,
   REPO_ROOT,
   SANDBOX_HOME,
   runSandboxCommand,
@@ -141,5 +144,65 @@ describe("daytonaRepairAgent", () => {
     expect(result.pushed).toBe(false);
     expect(result.summary).toMatch(/real production exception/i);
     expect(result.verification[0]).toMatch(/run_command, read_file/);
+  });
+
+  it("parses repo-state command output", () => {
+    expect(
+      parseRepoStateOutput(
+        "abc123\nFix login crash\nVibefix\nbot@vibefix.dev\nabc123\n"
+      )
+    ).toEqual({
+      headSha: "abc123",
+      subject: "Fix login crash",
+      authorName: "Vibefix",
+      authorEmail: "bot@vibefix.dev",
+      remoteHeadSha: "abc123",
+    });
+  });
+
+  it("builds a repo-state command that checks remote branch head", () => {
+    const command = buildRepoStateCommand("master");
+
+    expect(command).toContain("ls-remote origin");
+    expect(command).toContain("refs/heads/master");
+    expect(command).toContain("/home/daytona/repo");
+  });
+
+  it("promotes a bot-authored remote head advance into fix_pushed", () => {
+    const promoted = buildObservedPushResult({
+      initialHead: "old123",
+      logSnippet:
+        "[auth] loginWithGoogleProfile failed: TypeError: Cannot read properties of undefined",
+      normalizedResult: {
+        decision: "needs_human",
+        confidence: 0.4,
+        summary: "",
+        rootCause: "",
+        fixSummary: "",
+        verification: ["Read the auth stack trace."],
+      },
+      repoState: {
+        headSha: "new456",
+        subject: "Fix Google sign-in session creation crash",
+        authorName: "Vibefix",
+        authorEmail: "bot@vibefix.dev",
+        remoteHeadSha: "new456",
+      },
+      runnerConfig: {
+        gitAuthorName: "Vibefix",
+        gitAuthorEmail: "bot@vibefix.dev",
+      },
+      targetBranch: "master",
+    });
+
+    expect(promoted).toMatchObject({
+      decision: "fix_pushed",
+      branch: "master",
+      commitSha: "new456",
+      pushed: true,
+    });
+    expect(promoted.verification).toContain(
+      "Observed master advancing to new456 during the Daytona repair run."
+    );
   });
 });

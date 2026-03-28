@@ -1,6 +1,7 @@
 const {
   chooseGithubRepository,
   connectGithubInstallationForUser,
+  getLatestFixRunForUser,
   upsertAgentConfig,
   mapAgentConfigRow,
   mapLatestAgentRunRow
@@ -163,6 +164,49 @@ describe("onboardingService", () => {
       branch: "master",
       commitSha: "abc123def456",
       deployed: true
+    });
+  });
+
+  it("loads the latest shipped fix separately from the latest run", async () => {
+    const dbPool = {
+      query: vi.fn().mockResolvedValue({
+        rows: [
+          {
+            id: "run_fix",
+            status: "fix_pushed",
+            classifier_reason: "actionable_error_detected",
+            summary: "Shipped a checkout fix.",
+            root_cause: "Null payload",
+            fix_summary: "Added a fallback.",
+            patch_text: "diff --git a/app.js b/app.js",
+            branch: "master",
+            commit_sha: "fix123abc",
+            pushed: true,
+            deployed: false,
+            error_message: "",
+            started_at: "2026-03-28T15:00:00.000Z",
+            finished_at: "2026-03-28T15:01:00.000Z",
+            deployed_at: null,
+            created_at: "2026-03-28T15:00:00.000Z"
+          }
+        ]
+      })
+    };
+
+    const result = await getLatestFixRunForUser({
+      dbPool,
+      userId: 7
+    });
+
+    expect(dbPool.query).toHaveBeenCalledWith(
+      expect.stringContaining("status in ('fix_pushed', 'deployed')"),
+      [7]
+    );
+    expect(result).toMatchObject({
+      id: "run_fix",
+      status: "fix_pushed",
+      commitSha: "fix123abc",
+      pushed: true
     });
   });
 

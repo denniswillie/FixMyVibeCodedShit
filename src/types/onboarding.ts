@@ -68,6 +68,12 @@ export interface AgentRunUpdate {
   createdAt: string | null;
 }
 
+export interface OnboardingConfigResponse {
+  config: OnboardingDraft;
+  latestRun?: AgentRunUpdate | null;
+  latestFixRun?: AgentRunUpdate | null;
+}
+
 export interface OnboardingDraft {
   github: GitHubConfig;
   aws: AwsConfig;

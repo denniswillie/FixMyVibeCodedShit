@@ -1,6 +1,7 @@
 import type {
   AgentRunUpdate,
   OnboardingDraft,
+  OnboardingConfigResponse,
   AuthenticatedUser,
   GitHubConnection,
   GitHubRepository,
@@ -14,11 +15,6 @@ interface ApiErrorShape {
 export interface SessionResponse {
   authenticated: boolean;
   user?: AuthenticatedUser;
-}
-
-export interface OnboardingConfigResponse {
-  config: OnboardingDraft;
-  latestRun?: AgentRunUpdate | null;
 }
 
 export interface GitHubReposResponse {

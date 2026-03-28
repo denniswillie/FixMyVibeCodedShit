@@ -141,6 +141,83 @@ function buildGitConfigCommand({ gitAuthorEmail, gitAuthorName }) {
   ].join(" && ");
 }
 
+function buildRepoHeadCommand() {
+  return `git -C ${shellEscape(REPO_ROOT)} rev-parse HEAD`;
+}
+
+function buildRepoStateCommand(targetBranch) {
+  return [
+    `head=$(git -C ${shellEscape(REPO_ROOT)} rev-parse HEAD)`,
+    `subject=$(git -C ${shellEscape(REPO_ROOT)} log -1 --format=%s)`,
+    `author_name=$(git -C ${shellEscape(REPO_ROOT)} log -1 --format=%an)`,
+    `author_email=$(git -C ${shellEscape(REPO_ROOT)} log -1 --format=%ae)`,
+    `remote=$(git -C ${shellEscape(REPO_ROOT)} ls-remote origin ${shellEscape(`refs/heads/${targetBranch}`)} | awk 'NR==1 {print $1}')`,
+    "printf '%s\\n%s\\n%s\\n%s\\n%s' \"$head\" \"$subject\" \"$author_name\" \"$author_email\" \"$remote\"",
+  ].join(" ; ");
+}
+
+function parseRepoStateOutput(outputText) {
+  const [headSha = "", subject = "", authorName = "", authorEmail = "", remoteHeadSha = ""] =
+    String(outputText || "").split("\n");
+
+  return {
+    headSha: String(headSha).trim(),
+    subject: String(subject).trim(),
+    authorName: String(authorName).trim(),
+    authorEmail: String(authorEmail).trim(),
+    remoteHeadSha: String(remoteHeadSha).trim(),
+  };
+}
+
+function buildObservedPushResult({
+  initialHead,
+  logSnippet,
+  normalizedResult,
+  repoState,
+  runnerConfig,
+  targetBranch,
+}) {
+  const authorMatches =
+    repoState.authorEmail === String(runnerConfig.gitAuthorEmail || "").trim() ||
+    repoState.authorName === String(runnerConfig.gitAuthorName || "").trim();
+  const headAdvanced = Boolean(repoState.headSha) && repoState.headSha !== initialHead;
+  const remoteMatchesHead =
+    Boolean(repoState.remoteHeadSha) && repoState.remoteHeadSha === repoState.headSha;
+
+  if (!authorMatches || !headAdvanced || !remoteMatchesHead) {
+    return null;
+  }
+
+  const priorVerification = Array.isArray(normalizedResult?.verification)
+    ? normalizedResult.verification
+    : [];
+  const verification = Array.from(
+    new Set([
+      ...priorVerification,
+      `Observed ${targetBranch} advancing to ${repoState.headSha} during the Daytona repair run.`,
+    ])
+  );
+
+  return {
+    decision: "fix_pushed",
+    confidence: Math.max(Number(normalizedResult?.confidence || 0), hasCriticalRuntimeFailure(logSnippet) ? 0.9 : 0.82),
+    summary:
+      String(normalizedResult?.summary || "").trim() ||
+      `Vibefix pushed ${repoState.headSha.slice(0, 7)} to ${targetBranch}: ${repoState.subject || "repair commit"}`,
+    rootCause:
+      String(normalizedResult?.rootCause || "").trim() ||
+      (hasCriticalRuntimeFailure(logSnippet)
+        ? "A real production runtime exception was addressed by a direct commit on the target branch."
+        : "Vibefix pushed a direct repair to the target branch."),
+    fixSummary:
+      String(normalizedResult?.fixSummary || "").trim() || repoState.subject || "Pushed a direct repair commit.",
+    verification,
+    branch: targetBranch,
+    commitSha: repoState.headSha,
+    pushed: true,
+  };
+}
+
 function buildExhaustedIterationsResult({ targetBranch, logSnippet, toolNames }) {
   const criticalRuntimeFailure = hasCriticalRuntimeFailure(logSnippet);
 
@@ -288,6 +365,16 @@ async function collectFixArtifacts(sandbox, targetBranch, timeoutSeconds) {
   };
 }
 
+async function inspectRepoState(sandbox, targetBranch, timeoutSeconds) {
+  const repoStateExecution = await runSandboxCommand(
+    sandbox,
+    buildRepoStateCommand(targetBranch),
+    undefined,
+    timeoutSeconds
+  );
+  return parseRepoStateOutput(getExecutionOutput(repoStateExecution));
+}
+
 export async function runRepairAgent({
   claimedConfig,
   githubToken,
@@ -360,6 +447,13 @@ export async function runRepairAgent({
         destination: `${CONTEXT_ROOT}/triage-context.json`,
       },
     ]);
+    const initialHeadExecution = await runSandboxCommand(
+      sandbox,
+      buildRepoHeadCommand(),
+      undefined,
+      runnerConfig.commandTimeoutSeconds
+    );
+    const initialHead = getExecutionOutput(initialHeadExecution);
 
     const prompt = buildRepairPrompt({
       claimedConfig,
@@ -483,6 +577,39 @@ export async function runRepairAgent({
     }
 
     if (!finalText) {
+      const repoState = await inspectRepoState(
+        sandbox,
+        targetBranch,
+        runnerConfig.commandTimeoutSeconds
+      );
+      const observedPushResult = buildObservedPushResult({
+        initialHead,
+        logSnippet,
+        normalizedResult: null,
+        repoState,
+        runnerConfig,
+        targetBranch,
+      });
+
+      if (observedPushResult) {
+        console.log(
+          `[triage-runner] user=${claimedConfig.userId} observed pushed fix commit=${observedPushResult.commitSha}`
+        );
+        const artifacts = await collectFixArtifacts(
+          sandbox,
+          targetBranch,
+          runnerConfig.commandTimeoutSeconds
+        );
+        return {
+          branchName: targetBranch,
+          patchText: artifacts.patchText,
+          result: {
+            ...observedPushResult,
+            commitSha: artifacts.commitSha,
+          },
+        };
+      }
+
       return {
         branchName: targetBranch,
         patchText: "",
@@ -515,6 +642,27 @@ export async function runRepairAgent({
         }),
       };
     }
+
+    const repoState = await inspectRepoState(
+      sandbox,
+      targetBranch,
+      runnerConfig.commandTimeoutSeconds
+    );
+    const observedPushResult = buildObservedPushResult({
+      initialHead,
+      logSnippet,
+      normalizedResult,
+      repoState,
+      runnerConfig,
+      targetBranch,
+    });
+
+    if (observedPushResult && normalizedResult.decision !== "fix_pushed") {
+      console.log(
+        `[triage-runner] user=${claimedConfig.userId} promoting run to fix_pushed from observed repo state commit=${observedPushResult.commitSha}`
+      );
+      normalizedResult = observedPushResult;
+    }
     let patchText = "";
     let commitSha = normalizedResult.commitSha;
 
@@ -542,12 +690,17 @@ export async function runRepairAgent({
 }
 
 export {
+  buildObservedPushResult,
   buildCloneCommand,
   buildExhaustedIterationsResult,
   buildGitConfigCommand,
+  buildRepoHeadCommand,
+  buildRepoStateCommand,
   buildResponseCreateParams,
   hasCriticalRuntimeFailure,
+  inspectRepoState,
   CONTEXT_ROOT,
+  parseRepoStateOutput,
   REPO_ROOT,
   SANDBOX_HOME,
   buildToolDefinitions,

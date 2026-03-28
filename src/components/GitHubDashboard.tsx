@@ -16,6 +16,7 @@ interface GitHubDashboardProps {
   isLoading: boolean;
   message?: string | null;
   latestRun: AgentRunUpdate | null;
+  latestFixRun: AgentRunUpdate | null;
   onBackToSetup: () => void;
   onSignOut: () => void;
   onConnectGitHub: () => void;
@@ -65,12 +66,19 @@ export const GitHubDashboard = ({
   isLoading,
   message = null,
   latestRun,
+  latestFixRun,
   onBackToSetup,
   onSignOut,
   onConnectGitHub,
 }: GitHubDashboardProps) => {
   const isConnected = Boolean(connection?.installationId);
-  const latestRunMoment = latestMoment(latestRun?.deployedAt, latestRun?.finishedAt, latestRun?.startedAt, latestRun?.createdAt);
+  const visibleRun = latestFixRun;
+  const visibleRunMoment = latestMoment(
+    visibleRun?.deployedAt,
+    visibleRun?.finishedAt,
+    visibleRun?.startedAt,
+    visibleRun?.createdAt
+  );
 
   return (
     <main className="min-h-screen overflow-hidden bg-[#07110f] text-sand">
@@ -141,34 +149,34 @@ export const GitHubDashboard = ({
                       Latest worker update
                     </p>
                     <h3 className="mt-3 font-serif text-2xl font-semibold text-sand">
-                      {latestRun ? formatRunStatus(latestRun.status) : "No runs yet"}
+                      {visibleRun ? formatRunStatus(visibleRun.status) : "No fix pushed yet"}
                     </h3>
                   </div>
-                  {latestRun ? (
+                  {visibleRun ? (
                     <span className="inline-flex rounded-full border border-white/10 bg-white/5 px-4 py-2 font-display text-xs font-semibold uppercase tracking-[0.18em] text-sand/76">
-                      {formatTimestamp(latestRunMoment)}
+                      {formatTimestamp(visibleRunMoment)}
                     </span>
                   ) : null}
                 </div>
                 <p className="mt-4 text-sm leading-7 text-sand/70">
-                  {latestRun?.summary || "Once the poller sees logs for this founder, the latest triage result and deploy status will land here."}
+                  {visibleRun?.summary || "Vibefix will only post an update here after it has pushed a repair to the repo."}
                 </p>
-                {latestRun ? (
+                {visibleRun ? (
                   <div className="mt-5 grid gap-3 text-sm leading-7 text-sand/66 sm:grid-cols-2">
-                    <p>Commit: {latestRun.commitSha || "Pending"}</p>
-                    <p>Branch: {latestRun.branch || "Pending"}</p>
-                    <p>Deploy: {latestRun.deployed ? `Live at ${formatTimestamp(latestRun.deployedAt)}` : latestRun.pushed ? "Pushed, awaiting deploy" : "Not deployed"}</p>
-                    <p>Classifier: {latestRun.classifierReason || "Pending"}</p>
+                    <p>Commit: {visibleRun.commitSha || "Pending"}</p>
+                    <p>Branch: {visibleRun.branch || "Pending"}</p>
+                    <p>Deploy: {visibleRun.deployed ? `Live at ${formatTimestamp(visibleRun.deployedAt)}` : visibleRun.pushed ? "Pushed, awaiting deploy" : "Not deployed"}</p>
+                    <p>Classifier: {visibleRun.classifierReason || "Pending"}</p>
                   </div>
                 ) : null}
-                {latestRun?.rootCause ? (
+                {visibleRun?.rootCause ? (
                   <p className="mt-4 text-sm leading-7 text-sand/62">
-                    Root cause: {latestRun.rootCause}
+                    Root cause: {visibleRun.rootCause}
                   </p>
                 ) : null}
-                {latestRun?.errorMessage ? (
+                {visibleRun?.errorMessage ? (
                   <p className="mt-4 text-sm leading-7 text-[#ffb07a]">
-                    {latestRun.errorMessage}
+                    {visibleRun.errorMessage}
                   </p>
                 ) : null}
               </div>

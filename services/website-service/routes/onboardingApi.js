@@ -10,6 +10,7 @@ const {
 const {
   getAgentConfigForUser,
   getLatestAgentRunForUser,
+  getLatestFixRunForUser,
   upsertAgentConfig
 } = require("../services/onboardingService");
 
@@ -47,11 +48,12 @@ function buildOnboardingApiRouter({ pool }) {
         return;
       }
 
-      const [config, latestRun] = await Promise.all([
+      const [config, latestRun, latestFixRun] = await Promise.all([
         getAgentConfigForUser({ dbPool: pool, userId: user.id }),
-        getLatestAgentRunForUser({ dbPool: pool, userId: user.id })
+        getLatestAgentRunForUser({ dbPool: pool, userId: user.id }),
+        getLatestFixRunForUser({ dbPool: pool, userId: user.id })
       ]);
-      return res.json({ config, latestRun });
+      return res.json({ config, latestRun, latestFixRun });
     } catch (error) {
       console.error("[onboarding/config:get] error:", error);
       return res.status(500).json({
@@ -75,9 +77,12 @@ function buildOnboardingApiRouter({ pool }) {
         userId: user.id,
         config: parsedConfig
       });
-      const latestRun = await getLatestAgentRunForUser({ dbPool: pool, userId: user.id });
+      const [latestRun, latestFixRun] = await Promise.all([
+        getLatestAgentRunForUser({ dbPool: pool, userId: user.id }),
+        getLatestFixRunForUser({ dbPool: pool, userId: user.id })
+      ]);
 
-      return res.status(200).json({ config, latestRun });
+      return res.status(200).json({ config, latestRun, latestFixRun });
     } catch (error) {
       if (error instanceof ZodError) {
         return res.status(400).json({

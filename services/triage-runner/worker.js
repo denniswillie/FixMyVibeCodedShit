@@ -14,6 +14,46 @@ function sleep(ms) {
   });
 }
 
+const STALE_DEPLOYMENT_PATTERNS = [
+  /\balready contains the fix\b/i,
+  /\brunning code older than current\b/i,
+  /\bstale container\b/i,
+  /\bstale deployment\b/i,
+  /\bredeploy(?:ed|ment)?\b/i,
+  /\brunning service\/log source is not on the current master commit\b/i,
+  /\bservice appears to be running code older than current master\b/i,
+];
+
+function shouldAutoDeployRepairRun(repairRun) {
+  const decision = String(repairRun?.result?.decision || "").trim();
+  const pushed = Boolean(repairRun?.result?.pushed);
+  const branch = String(repairRun?.result?.branch || repairRun?.branchName || "").trim();
+  const commitSha = String(repairRun?.result?.commitSha || "").trim();
+
+  if (!branch || !commitSha) {
+    return false;
+  }
+
+  if (decision === "fix_pushed" && pushed) {
+    return true;
+  }
+
+  if (decision !== "needs_human") {
+    return false;
+  }
+
+  const explanation = [
+    repairRun?.result?.summary,
+    repairRun?.result?.rootCause,
+    repairRun?.result?.fixSummary,
+    ...(Array.isArray(repairRun?.result?.verification) ? repairRun.result.verification : []),
+  ]
+    .filter(Boolean)
+    .join("\n");
+
+  return STALE_DEPLOYMENT_PATTERNS.some((pattern) => pattern.test(explanation));
+}
+
 async function processClaimedConfig(claimedConfig, runnerConfig) {
   const logs = await fetchDockerLogs(claimedConfig, runnerConfig);
   const logSnippet = `${logs.stdout}\n${logs.stderr}`.trim();
@@ -59,11 +99,7 @@ async function processClaimedConfig(claimedConfig, runnerConfig) {
     `[triage-runner] user=${claimedConfig.userId} decision=${repairRun.result.decision} confidence=${repairRun.result.confidence}`
   );
 
-  if (
-    runnerConfig.autoDeployAfterFix &&
-    repairRun.result.decision === "fix_pushed" &&
-    repairRun.result.pushed
-  ) {
+  if (runnerConfig.autoDeployAfterFix && shouldAutoDeployRepairRun(repairRun)) {
     try {
       const deployResult = await deployPushedFix(claimedConfig, repairRun, runnerConfig);
       console.log(
@@ -191,7 +227,7 @@ function buildRunPayloadFromOutcome(processedResult) {
   };
 }
 
-export { buildRunPayloadFromOutcome };
+export { buildRunPayloadFromOutcome, shouldAutoDeployRepairRun };
 
 export async function runForever() {
   const runnerConfig = loadRunnerConfig();

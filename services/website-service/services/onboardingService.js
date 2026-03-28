@@ -189,6 +189,26 @@ async function getLatestAgentRunForUser({ dbPool, userId }) {
   return mapLatestAgentRunRow(result.rows[0] || null);
 }
 
+async function getLatestFixRunForUser({ dbPool, userId }) {
+  const result = await dbPool.query(
+    `
+      select
+        ${AGENT_RUN_SELECT}
+      from public.agent_runs
+      where user_id = $1
+        and (
+          status in ('fix_pushed', 'deployed')
+          or pushed = true
+        )
+      order by coalesce(deployed_at, finished_at, started_at, created_at) desc, created_at desc
+      limit 1
+    `,
+    [userId]
+  );
+
+  return mapLatestAgentRunRow(result.rows[0] || null);
+}
+
 async function connectGithubInstallationForUser({ dbPool, userId, installation }) {
   const existingResult = await dbPool.query(
     `
@@ -355,6 +375,7 @@ module.exports = {
   defaultAgentConfig,
   getAgentConfigForUser,
   getLatestAgentRunForUser,
+  getLatestFixRunForUser,
   mapAgentConfigRow,
   mapLatestAgentRunRow,
   upsertAgentConfig
