@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-ROOT_DIR="${ROOT_DIR:-/opt/vibefix}"
+ROOT_DIR="${ROOT_DIR:-/opt/fixmyvibecodedshit}"
 ENV_FILE="${ENV_FILE:-${ROOT_DIR}/.env}"
 COMPOSE_FILE="${COMPOSE_FILE:-${ROOT_DIR}/docker-compose.ec2.yml}"
 REVISION="${1:-}"

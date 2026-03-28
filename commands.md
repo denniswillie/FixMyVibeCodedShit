@@ -5,7 +5,7 @@ This is the operational command reference for Vibefix across local development a
 
 | Item            | Value                          |
 | --------------- | ------------------------------ |
-| EC2 repo path   | `/opt/vibefix`                 |
+| EC2 repo path   | `/opt/fixmyvibecodedshit`     |
 | Local repo path | `/Users/denniswillie/vibefix`  |
 | Canonical URL   | `https://fixmyvibecodedshit.com` |
 
@@ -13,7 +13,7 @@ This is the operational command reference for Vibefix across local development a
 ## 0) Shared shell setup
 
 ```bash
-export REPO_DIR="/opt/vibefix"
+export REPO_DIR="/opt/fixmyvibecodedshit"
 export LOCAL_REPO_DIR="/Users/denniswillie/vibefix"
 ```
 
@@ -28,26 +28,28 @@ export REPO_DIR="$LOCAL_REPO_DIR"
 ### 1.1 SSH into EC2
 
 ```bash
-ssh -i /path/to/key.pem ubuntu@<EC2_PUBLIC_IP>
+ssh -i /path/to/key.pem ec2-user@<EC2_PUBLIC_IP>
 ```
 
-### 1.2 Fresh EC2 bootstrap (Ubuntu 22.04 / 24.04)
+### 1.2 Fresh EC2 bootstrap (Amazon Linux 2023)
 
 ```bash
-sudo apt update
-sudo apt install -y ca-certificates curl git
-sudo install -m 0755 -d /etc/apt/keyrings
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-sudo chmod a+r /etc/apt/keyrings/docker.gpg
-echo \
-  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
-  $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
-  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-sudo apt update
-sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+sudo dnf update -y
+sudo dnf install -y git jq bind-utils docker
 sudo systemctl enable --now docker
-sudo usermod -aG docker "$USER"
+sudo usermod -aG docker ec2-user
 newgrp docker
+
+mkdir -p ~/.docker/cli-plugins
+ARCH="$(uname -m)"
+case "$ARCH" in
+  x86_64) COMPOSE_ARCH="x86_64" ;;
+  aarch64|arm64) COMPOSE_ARCH="aarch64" ;;
+  *) echo "Unsupported architecture: $ARCH" && exit 1 ;;
+esac
+curl -SL "https://github.com/docker/compose/releases/download/v2.29.7/docker-compose-linux-${COMPOSE_ARCH}" \
+  -o ~/.docker/cli-plugins/docker-compose
+chmod +x ~/.docker/cli-plugins/docker-compose
 docker compose version
 ```
 
@@ -56,7 +58,7 @@ docker compose version
 ```bash
 # Option A: GitHub SSH deploy key
 sudo mkdir -p "$REPO_DIR"
-sudo chown "$USER:$USER" "$REPO_DIR"
+sudo chown ec2-user:ec2-user "$REPO_DIR"
 mkdir -p ~/.ssh && chmod 700 ~/.ssh
 ssh-keygen -t ed25519 -C "vibefix-ec2-deploy" -f ~/.ssh/id_ed25519 -N ""
 chmod 600 ~/.ssh/id_ed25519
@@ -87,7 +89,7 @@ git clone git@github.com:<org>/<repo>.git "$REPO_DIR"
 ```bash
 # Option B: GitHub PAT over HTTPS
 sudo mkdir -p "$REPO_DIR"
-sudo chown "$USER:$USER" "$REPO_DIR"
+sudo chown ec2-user:ec2-user "$REPO_DIR"
 git clone "https://<github_user>:<pat>@github.com/<org>/<repo>.git" "$REPO_DIR"
 ```
 

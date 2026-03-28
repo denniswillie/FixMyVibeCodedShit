@@ -16,13 +16,13 @@ This repo can run on a single EC2 instance with Docker Compose and Caddy.
 Clone the repo to:
 
 ```bash
-/opt/vibefix
+/opt/fixmyvibecodedshit
 ```
 
 Create:
 
 ```bash
-/opt/vibefix/.env
+/opt/fixmyvibecodedshit/.env
 ```
 
 You can start from `deploy/env/.env.ec2.example`.
@@ -30,7 +30,7 @@ You can start from `deploy/env/.env.ec2.example`.
 ## First deploy
 
 ```bash
-cd /opt/vibefix
+cd /opt/fixmyvibecodedshit
 chmod +x deploy/scripts/preflight_ec2.sh deploy/scripts/deploy_ec2.sh
 ./deploy/scripts/deploy_ec2.sh
 ```
