@@ -1,6 +1,7 @@
 .env
 .env.prod
 .aws-gitbio-upload.ini
+aws-gitbio-upload.ini
 node_modules/
 dist/
 coverage/

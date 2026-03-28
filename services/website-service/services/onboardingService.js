@@ -303,8 +303,8 @@ async function upsertAgentConfig({ dbPool, userId, config }) {
         $8,
         $9,
         $10,
-        $11,
-        $12,
+        $11::integer,
+        $12::integer,
         $13,
         'active',
         timezone('utc', now())

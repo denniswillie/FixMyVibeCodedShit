@@ -224,6 +224,8 @@ describe("onboardingService", () => {
     });
 
     expect(dbPool.query).toHaveBeenCalledTimes(1);
+    expect(dbPool.query.mock.calls[0][0]).toContain("$11::integer");
+    expect(dbPool.query.mock.calls[0][0]).toContain("$12::integer");
     expect(dbPool.query.mock.calls[0][0]).toContain("next_triage_at = timezone('utc', now())");
   });
 });
