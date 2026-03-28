@@ -87,6 +87,27 @@ function buildToolDefinitions() {
   ];
 }
 
+function buildResponseCreateParams({
+  input,
+  model,
+  previousResponseId,
+  reasoningEffort,
+  tools,
+}) {
+  return {
+    model,
+    input,
+    ...(previousResponseId ? { previous_response_id: previousResponseId } : {}),
+    reasoning: {
+      effort: reasoningEffort,
+    },
+    // We rely on previous_response_id for the tool loop, so these responses
+    // must remain addressable until the loop completes.
+    store: true,
+    tools,
+  };
+}
+
 function extractToolCalls(response) {
   return Array.isArray(response.output)
     ? response.output.filter((item) => item.type === "function_call")
@@ -282,16 +303,15 @@ export async function runRepairAgent({
     let finalText = "";
 
     for (let iteration = 0; iteration < runnerConfig.maxAgentIterations; iteration += 1) {
-      const response = await openai.responses.create({
-        model: runnerConfig.openAiModel,
-        input: pendingInputs,
-        ...(previousResponseId ? { previous_response_id: previousResponseId } : {}),
-        reasoning: {
-          effort: runnerConfig.openAiReasoningEffort,
-        },
-        store: false,
-        tools,
-      });
+      const response = await openai.responses.create(
+        buildResponseCreateParams({
+          input: pendingInputs,
+          model: runnerConfig.openAiModel,
+          previousResponseId,
+          reasoningEffort: runnerConfig.openAiReasoningEffort,
+          tools,
+        })
+      );
 
       previousResponseId = response.id;
       const toolCalls = extractToolCalls(response);
@@ -400,3 +420,4 @@ export async function runRepairAgent({
 }
 
 export { CONTEXT_ROOT, REPO_ROOT, SANDBOX_HOME, buildToolDefinitions, runSandboxCommand };
+export { buildResponseCreateParams };

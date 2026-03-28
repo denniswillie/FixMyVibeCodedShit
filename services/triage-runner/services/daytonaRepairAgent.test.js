@@ -1,4 +1,5 @@
 import {
+  buildResponseCreateParams,
   buildToolDefinitions,
   CONTEXT_ROOT,
   REPO_ROOT,
@@ -44,5 +45,19 @@ describe("daytonaRepairAgent", () => {
       "integer",
       "null",
     ]);
+  });
+
+  it("stores responses when chaining with previous_response_id", () => {
+    const params = buildResponseCreateParams({
+      input: "test prompt",
+      model: "gpt-5.4",
+      previousResponseId: "resp_123",
+      reasoningEffort: "high",
+      tools: buildToolDefinitions(),
+    });
+
+    expect(params.store).toBe(true);
+    expect(params.previous_response_id).toBe("resp_123");
+    expect(params.reasoning).toEqual({ effort: "high" });
   });
 });
