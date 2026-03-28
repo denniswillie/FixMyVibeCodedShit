@@ -4,8 +4,9 @@ import OpenAI from "openai";
 import { buildAuthenticatedRepoUrl, parseGithubRepoUrl } from "./githubAccess.js";
 import { buildRepairPrompt } from "./promptBuilder.js";
 
-const REPO_ROOT = "/workspace/repo";
-const CONTEXT_ROOT = "/workspace/context";
+const SANDBOX_HOME = "/home/daytona";
+const REPO_ROOT = `${SANDBOX_HOME}/repo`;
+const CONTEXT_ROOT = `${SANDBOX_HOME}/context`;
 const PATCH_PATH = `${CONTEXT_ROOT}/fix.patch`;
 
 function truncateResult(value, limit = 12_000) {
@@ -126,22 +127,47 @@ function normalizeRepairResult(result, targetBranch) {
   return normalized;
 }
 
-async function collectFixArtifacts(sandbox, targetBranch, timeoutSeconds) {
-  const headSha = await sandbox.process.executeCommand(
-    `git -C ${REPO_ROOT} rev-parse HEAD`,
-    undefined,
+function getExecutionOutput(execution) {
+  return String(execution?.result || execution?.artifacts?.stdout || "").trim();
+}
+
+function getExecutionError(execution) {
+  return String(execution?.artifacts?.stderr || "").trim();
+}
+
+async function runSandboxCommand(sandbox, command, cwd, timeoutSeconds) {
+  const execution = await sandbox.process.executeCommand(
+    command,
+    cwd,
     undefined,
     timeoutSeconds
   );
-  const commitSha = String(headSha.result || "").trim();
+
+  if (Number(execution?.exitCode || 0) !== 0) {
+    throw new Error(
+      `Sandbox command failed (${command}): ${getExecutionError(execution) || getExecutionOutput(execution) || `exit ${execution.exitCode}`}`
+    );
+  }
+
+  return execution;
+}
+
+async function collectFixArtifacts(sandbox, targetBranch, timeoutSeconds) {
+  const headSha = await runSandboxCommand(
+    sandbox,
+    `git -C ${REPO_ROOT} rev-parse HEAD`,
+    undefined,
+    timeoutSeconds
+  );
+  const commitSha = getExecutionOutput(headSha);
 
   if (!commitSha) {
     throw new Error("Unable to resolve HEAD after the repair push.");
   }
 
-  await sandbox.process.executeCommand(
+  await runSandboxCommand(
+    sandbox,
     `git -C ${REPO_ROOT} format-patch -1 --stdout HEAD > ${PATCH_PATH}`,
-    undefined,
     undefined,
     timeoutSeconds
   );
@@ -190,28 +216,33 @@ export async function runRepairAgent({
   });
 
   try {
-    await sandbox.process.executeCommand("mkdir -p /workspace/context", undefined, undefined, runnerConfig.commandTimeoutSeconds);
-    await sandbox.process.executeCommand(
+    await runSandboxCommand(
+      sandbox,
+      `mkdir -p ${CONTEXT_ROOT}`,
+      undefined,
+      runnerConfig.commandTimeoutSeconds
+    );
+    await runSandboxCommand(
+      sandbox,
       `git clone ${repoCloneUrl} ${REPO_ROOT}`,
       undefined,
-      undefined,
       runnerConfig.commandTimeoutSeconds
     );
-    await sandbox.process.executeCommand(
+    await runSandboxCommand(
+      sandbox,
       `git -C ${REPO_ROOT} checkout ${targetBranch}`,
       undefined,
-      undefined,
       runnerConfig.commandTimeoutSeconds
     );
-    await sandbox.process.executeCommand(
+    await runSandboxCommand(
+      sandbox,
       `git -C ${REPO_ROOT} pull --ff-only origin ${targetBranch}`,
       undefined,
-      undefined,
       runnerConfig.commandTimeoutSeconds
     );
-    await sandbox.process.executeCommand(
+    await runSandboxCommand(
+      sandbox,
       `git -C ${REPO_ROOT} config user.name "${runnerConfig.gitAuthorName}" && git -C ${REPO_ROOT} config user.email "${runnerConfig.gitAuthorEmail}"`,
-      undefined,
       undefined,
       runnerConfig.commandTimeoutSeconds
     );
@@ -367,3 +398,5 @@ export async function runRepairAgent({
     await sandbox.delete();
   }
 }
+
+export { CONTEXT_ROOT, REPO_ROOT, SANDBOX_HOME, runSandboxCommand };

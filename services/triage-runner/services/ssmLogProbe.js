@@ -23,6 +23,18 @@ function sleep(ms) {
   });
 }
 
+function isInvocationNotReadyError(error) {
+  const name = String(error?.name || error?.Code || error?.code || "").trim();
+  const type = String(error?.__type || "").trim();
+  const message = String(error?.message || error || "").trim();
+
+  return (
+    name === "InvocationDoesNotExist" ||
+    type === "InvocationDoesNotExist" ||
+    message.includes("InvocationDoesNotExist")
+  );
+}
+
 export async function runSsmShellCommand(agentConfig, command, options) {
   const client = new SSMClient({
     region: agentConfig.aws.region,
@@ -46,12 +58,23 @@ export async function runSsmShellCommand(agentConfig, command, options) {
   }
 
   for (let attempt = 0; attempt < options.ssmMaxPollAttempts; attempt += 1) {
-    const invocation = await client.send(
-      new GetCommandInvocationCommand({
-        CommandId: commandId,
-        InstanceId: agentConfig.aws.instanceId,
-      })
-    );
+    let invocation;
+
+    try {
+      invocation = await client.send(
+        new GetCommandInvocationCommand({
+          CommandId: commandId,
+          InstanceId: agentConfig.aws.instanceId,
+        })
+      );
+    } catch (error) {
+      if (isInvocationNotReadyError(error)) {
+        await sleep(options.ssmPollIntervalMs);
+        continue;
+      }
+
+      throw error;
+    }
 
     const status = String(invocation.Status || "");
 
@@ -85,3 +108,5 @@ export async function fetchDockerLogs(agentConfig, options) {
     options
   );
 }
+
+export { isInvocationNotReadyError };
