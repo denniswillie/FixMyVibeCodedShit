@@ -1,4 +1,10 @@
-import { CONTEXT_ROOT, REPO_ROOT, SANDBOX_HOME, runSandboxCommand } from "./daytonaRepairAgent.js";
+import {
+  buildToolDefinitions,
+  CONTEXT_ROOT,
+  REPO_ROOT,
+  SANDBOX_HOME,
+  runSandboxCommand,
+} from "./daytonaRepairAgent.js";
 
 describe("daytonaRepairAgent", () => {
   it("uses a writable home directory inside the sandbox", () => {
@@ -23,5 +29,20 @@ describe("daytonaRepairAgent", () => {
     await expect(
       runSandboxCommand(sandbox, "mkdir -p /bad/path", undefined, 30)
     ).rejects.toThrow(/permission denied/i);
+  });
+
+  it("defines run_command with a strict-compatible required list", () => {
+    const runCommandTool = buildToolDefinitions().find((tool) => tool.name === "run_command");
+
+    expect(runCommandTool.parameters.required).toEqual([
+      "command",
+      "cwd",
+      "timeoutSeconds",
+    ]);
+    expect(runCommandTool.parameters.properties.cwd.type).toEqual(["string", "null"]);
+    expect(runCommandTool.parameters.properties.timeoutSeconds.type).toEqual([
+      "integer",
+      "null",
+    ]);
   });
 });

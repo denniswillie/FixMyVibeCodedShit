@@ -35,15 +35,15 @@ function buildToolDefinitions() {
             description: "Shell command to execute.",
           },
           cwd: {
-            type: "string",
-            description: "Absolute working directory. Defaults to /workspace/repo.",
+            type: ["string", "null"],
+            description: "Absolute working directory. Use null to default to /home/daytona/repo.",
           },
           timeoutSeconds: {
-            type: "integer",
-            description: "Timeout in seconds for the command.",
+            type: ["integer", "null"],
+            description: "Timeout in seconds for the command. Use null to default to the runner timeout.",
           },
         },
-        required: ["command"],
+        required: ["command", "cwd", "timeoutSeconds"],
       },
     },
     {
@@ -399,4 +399,4 @@ export async function runRepairAgent({
   }
 }
 
-export { CONTEXT_ROOT, REPO_ROOT, SANDBOX_HOME, runSandboxCommand };
+export { CONTEXT_ROOT, REPO_ROOT, SANDBOX_HOME, buildToolDefinitions, runSandboxCommand };
