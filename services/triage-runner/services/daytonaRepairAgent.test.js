@@ -1,4 +1,6 @@
 import {
+  buildCloneCommand,
+  buildGitConfigCommand,
   buildResponseCreateParams,
   buildToolDefinitions,
   CONTEXT_ROOT,
@@ -59,5 +61,27 @@ describe("daytonaRepairAgent", () => {
     expect(params.store).toBe(true);
     expect(params.previous_response_id).toBe("resp_123");
     expect(params.reasoning).toEqual({ effort: "high" });
+  });
+
+  it("clones only the target branch in a fresh sandbox", () => {
+    const command = buildCloneCommand("https://example.com/private.git", "master");
+
+    expect(command).toContain("git clone");
+    expect(command).toContain("--depth 1");
+    expect(command).toContain("--single-branch");
+    expect(command).toContain("--branch 'master'");
+    expect(command).toContain("'https://example.com/private.git'");
+    expect(command).toContain("'/home/daytona/repo'");
+  });
+
+  it("quotes git identity config safely", () => {
+    const command = buildGitConfigCommand({
+      gitAuthorEmail: "bot@vibefix.dev",
+      gitAuthorName: "Vibefix Bot",
+    });
+
+    expect(command).toContain("config user.name 'Vibefix Bot'");
+    expect(command).toContain("config user.email 'bot@vibefix.dev'");
+    expect(command).toContain("'/home/daytona/repo'");
   });
 });

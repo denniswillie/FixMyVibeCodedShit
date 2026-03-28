@@ -9,6 +9,10 @@ const REPO_ROOT = `${SANDBOX_HOME}/repo`;
 const CONTEXT_ROOT = `${SANDBOX_HOME}/context`;
 const PATCH_PATH = `${CONTEXT_ROOT}/fix.patch`;
 
+function shellEscape(value) {
+  return `'${String(value).replace(/'/g, `'\\''`)}'`;
+}
+
 function truncateResult(value, limit = 12_000) {
   const text = String(value || "");
 
@@ -106,6 +110,25 @@ function buildResponseCreateParams({
     store: true,
     tools,
   };
+}
+
+function buildCloneCommand(repoCloneUrl, targetBranch) {
+  return [
+    "GIT_TERMINAL_PROMPT=0",
+    "git clone",
+    "--depth 1",
+    "--single-branch",
+    `--branch ${shellEscape(targetBranch)}`,
+    shellEscape(repoCloneUrl),
+    shellEscape(REPO_ROOT),
+  ].join(" ");
+}
+
+function buildGitConfigCommand({ gitAuthorEmail, gitAuthorName }) {
+  return [
+    `git -C ${shellEscape(REPO_ROOT)} config user.name ${shellEscape(gitAuthorName)}`,
+    `git -C ${shellEscape(REPO_ROOT)} config user.email ${shellEscape(gitAuthorEmail)}`,
+  ].join(" && ");
 }
 
 function extractToolCalls(response) {
@@ -245,25 +268,16 @@ export async function runRepairAgent({
     );
     await runSandboxCommand(
       sandbox,
-      `git clone ${repoCloneUrl} ${REPO_ROOT}`,
+      buildCloneCommand(repoCloneUrl, targetBranch),
       undefined,
       runnerConfig.commandTimeoutSeconds
     );
     await runSandboxCommand(
       sandbox,
-      `git -C ${REPO_ROOT} checkout ${targetBranch}`,
-      undefined,
-      runnerConfig.commandTimeoutSeconds
-    );
-    await runSandboxCommand(
-      sandbox,
-      `git -C ${REPO_ROOT} pull --ff-only origin ${targetBranch}`,
-      undefined,
-      runnerConfig.commandTimeoutSeconds
-    );
-    await runSandboxCommand(
-      sandbox,
-      `git -C ${REPO_ROOT} config user.name "${runnerConfig.gitAuthorName}" && git -C ${REPO_ROOT} config user.email "${runnerConfig.gitAuthorEmail}"`,
+      buildGitConfigCommand({
+        gitAuthorEmail: runnerConfig.gitAuthorEmail,
+        gitAuthorName: runnerConfig.gitAuthorName,
+      }),
       undefined,
       runnerConfig.commandTimeoutSeconds
     );
@@ -419,5 +433,13 @@ export async function runRepairAgent({
   }
 }
 
-export { CONTEXT_ROOT, REPO_ROOT, SANDBOX_HOME, buildToolDefinitions, runSandboxCommand };
-export { buildResponseCreateParams };
+export {
+  buildCloneCommand,
+  buildGitConfigCommand,
+  buildResponseCreateParams,
+  CONTEXT_ROOT,
+  REPO_ROOT,
+  SANDBOX_HOME,
+  buildToolDefinitions,
+  runSandboxCommand,
+};
