@@ -27,6 +27,12 @@ Create:
 
 You can start from `deploy/env/.env.ec2.example`.
 
+For GitHub repo access, configure your GitHub App with:
+
+- Setup URL: `https://fixmyvibecodedshit.com/auth/github/callback`
+- Repository permissions: `Contents: Read and write`, `Metadata: Read-only`
+- Installation behavior: founders should choose `Only select repositories`
+
 ## First deploy
 
 ```bash

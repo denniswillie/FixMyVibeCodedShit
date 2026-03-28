@@ -8,6 +8,7 @@ import { HeroScene } from "@/components/HeroScene";
 import { buildDefaultDraft, isDraftReady } from "@/lib/onboarding";
 import {
   ApiError,
+  beginGithubRepoAccess,
   beginGoogleSignIn,
   getOnboardingConfig,
   getSession,
@@ -56,6 +57,8 @@ const App = () => {
     const searchParams = new URLSearchParams(window.location.search);
     const authStatus = searchParams.get("auth");
     const authError = searchParams.get("auth_error");
+    const githubStatus = searchParams.get("github");
+    const githubError = searchParams.get("github_error");
 
     const bootstrap = async () => {
       setAuthLoading(true);
@@ -69,8 +72,12 @@ const App = () => {
 
         if (authStatus === "google_success") {
           setMessage("Google sign-in completed. Enter the operator credentials below.");
+        } else if (githubStatus === "connected") {
+          setMessage("GitHub repo access connected. Finish the EC2 details and save the operator config.");
         } else if (authError) {
           setMessage(`Google sign-in failed: ${authError.split("_").join(" ")}.`);
+        } else if (githubError) {
+          setMessage(`GitHub connect failed: ${githubError.split("_").join(" ")}.`);
         }
 
         if (!session.authenticated || !session.user) {
@@ -105,6 +112,14 @@ const App = () => {
               branch: String(onboarding.config.github.branch),
               accessToken: String(onboarding.config.github.accessToken),
               repoUrl: String(onboarding.config.github.repoUrl),
+              connection: onboarding.config.github.connection
+                ? {
+                    ...onboarding.config.github.connection,
+                    installationId: Number(onboarding.config.github.connection.installationId),
+                    repoCount: Number(onboarding.config.github.connection.repoCount),
+                    connectedAt: onboarding.config.github.connection.connectedAt,
+                  }
+                : null,
             },
             ssh: {
               ...onboarding.config.ssh,
@@ -138,7 +153,7 @@ const App = () => {
 
         setAuthLoading(false);
         setConfigLoading(false);
-        if (authStatus || authError) {
+        if (authStatus || authError || githubStatus || githubError) {
           window.history.replaceState({}, document.title, window.location.pathname);
         }
       }
@@ -153,6 +168,10 @@ const App = () => {
 
   const handleSignIn = () => {
     beginGoogleSignIn();
+  };
+
+  const handleGithubConnect = () => {
+    beginGithubRepoAccess();
   };
 
   const handleSignOut = async () => {
@@ -187,6 +206,14 @@ const App = () => {
             repoUrl: String(result.config.github.repoUrl),
             branch: String(result.config.github.branch),
             accessToken: String(result.config.github.accessToken),
+            connection: result.config.github.connection
+              ? {
+                  ...result.config.github.connection,
+                  installationId: Number(result.config.github.connection.installationId),
+                  repoCount: Number(result.config.github.connection.repoCount),
+                  connectedAt: result.config.github.connection.connectedAt,
+                }
+              : null,
           },
           ssh: {
             ...result.config.ssh,
@@ -279,6 +306,7 @@ const App = () => {
                 <CredentialsForm
                   value={draft}
                   disabled={!user || configLoading}
+                  onConnectGitHub={handleGithubConnect}
                   onChange={setDraft}
                 />
                 <section className="rounded-[2rem] border border-ink/10 bg-white px-6 py-6 shadow-panel">

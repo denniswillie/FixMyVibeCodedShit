@@ -11,7 +11,18 @@ const onboardingConfigSchema = z.object({
   github: z.object({
     repoUrl: z.string().trim().url("Enter a valid GitHub repository URL.").max(2048),
     branch: z.string().trim().min(1, "Branch is required.").max(255),
-    accessToken: z.string().trim().min(1, "GitHub token is required.").max(4096)
+    accessToken: z.string().trim().max(4096).default(""),
+    connection: z
+      .object({
+        installationId: z.number().int().positive(),
+        accountLogin: z.string().trim().max(255),
+        targetType: z.string().trim().max(255),
+        repositorySelection: z.string().trim().max(255),
+        repoCount: z.number().int().min(0),
+        connectedAt: z.string().trim().datetime().nullable()
+      })
+      .nullable()
+      .optional()
   }),
   ssh: z.object({
     host: z.string().trim().min(1, "EC2 host is required.").max(255),

@@ -8,10 +8,16 @@ import { buildDefaultDraft } from "@/lib/onboarding";
 describe("CredentialsForm", () => {
   it("disables the fields until the founder is signed in", () => {
     render(
-      <CredentialsForm value={buildDefaultDraft("Europe/Dublin")} disabled onChange={vi.fn()} />
+      <CredentialsForm
+        value={buildDefaultDraft("Europe/Dublin")}
+        disabled
+        onConnectGitHub={vi.fn()}
+        onChange={vi.fn()}
+      />
     );
 
     expect(screen.getByLabelText(/repository url/i)).toBeDisabled();
+    expect(screen.getByRole("button", { name: /give us access to your github repo/i })).toBeDisabled();
     expect(screen.getByText(/sign in first/i)).toBeInTheDocument();
   });
 
@@ -21,7 +27,14 @@ describe("CredentialsForm", () => {
 
     const Harness = () => {
       const [value, setValue] = useState(draft);
-      return <CredentialsForm value={value} disabled={false} onChange={setValue} />;
+      return (
+        <CredentialsForm
+          value={value}
+          disabled={false}
+          onConnectGitHub={vi.fn()}
+          onChange={setValue}
+        />
+      );
     };
 
     render(<Harness />);
@@ -31,5 +44,23 @@ describe("CredentialsForm", () => {
     await user.type(repoUrlInput, "https://github.com/acme/new-hotfix-target");
 
     expect(repoUrlInput).toHaveValue("https://github.com/acme/new-hotfix-target");
+  });
+
+  it("calls the github connect action", async () => {
+    const user = userEvent.setup();
+    const onConnectGitHub = vi.fn();
+
+    render(
+      <CredentialsForm
+        value={buildDefaultDraft("Europe/Dublin")}
+        disabled={false}
+        onConnectGitHub={onConnectGitHub}
+        onChange={vi.fn()}
+      />
+    );
+
+    await user.click(screen.getByRole("button", { name: /give us access to your github repo/i }));
+
+    expect(onConnectGitHub).toHaveBeenCalledTimes(1);
   });
 });

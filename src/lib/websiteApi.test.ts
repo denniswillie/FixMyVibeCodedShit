@@ -1,5 +1,6 @@
 import {
   ApiError,
+  beginGithubRepoAccess,
   beginGoogleSignIn,
   getOnboardingConfig,
   getSession,
@@ -47,6 +48,7 @@ describe("websiteApi", () => {
         repoUrl: "https://github.com/acme/fragile-launch",
         branch: "main",
         accessToken: "ghp_demo",
+        connection: null,
       },
       ssh: {
         host: "ec2-1-2-3-4.compute.amazonaws.com",
@@ -113,5 +115,17 @@ describe("websiteApi", () => {
     beginGoogleSignIn();
 
     expect(assign).toHaveBeenCalledWith("/auth/google");
+  });
+
+  it("redirects the browser into github repo access", () => {
+    const assign = vi.fn();
+    Object.defineProperty(window, "location", {
+      configurable: true,
+      value: { assign },
+    });
+
+    beginGithubRepoAccess();
+
+    expect(assign).toHaveBeenCalledWith("/auth/github");
   });
 });

@@ -7,6 +7,7 @@ export const buildDefaultDraft = (
     repoUrl: "https://github.com/acme/fragile-launch",
     branch: "main",
     accessToken: "",
+    connection: null,
   },
   ssh: {
     host: "ec2-12-34-56-78.compute.amazonaws.com",
@@ -29,8 +30,8 @@ export const getMissingFields = (draft: OnboardingDraft) => {
     missing.push("GitHub repo URL");
   }
 
-  if (!draft.github.accessToken.trim()) {
-    missing.push("GitHub token");
+  if (!draft.github.connection?.installationId && !draft.github.accessToken.trim()) {
+    missing.push("GitHub repo access");
   }
 
   if (!draft.ssh.host.trim()) {
@@ -60,5 +61,7 @@ export const buildShellCommand = (draft: OnboardingDraft) =>
 export const buildAgentRunbook = (draft: OnboardingDraft) => [
   `Worker checks the queue every ${draft.schedule.everyMinutes || "15"} minutes.`,
   `Runner opens an SSH session to ${draft.ssh.host || "your EC2 host"} and tails ${draft.ssh.dockerService || "the selected Docker service"} logs.`,
-  "If errors appear, Vibefix opens a Daytona workspace with GPT-5.4, patches the repo, and pushes a manual deployment fix.",
+  draft.github.connection?.installationId
+    ? `If errors appear, Vibefix opens a Daytona workspace with GPT-5.4 and pushes the fix through the connected GitHub App installation on ${draft.github.connection.accountLogin || "your account"}.`
+    : "If errors appear, Vibefix opens a Daytona workspace with GPT-5.4, patches the repo, and pushes a manual deployment fix.",
 ];

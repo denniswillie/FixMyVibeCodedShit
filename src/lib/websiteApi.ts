@@ -80,3 +80,7 @@ export async function saveOnboardingConfig(config: OnboardingDraft) {
 export function beginGoogleSignIn() {
   window.location.assign("/auth/google");
 }
+
+export function beginGithubRepoAccess() {
+  window.location.assign("/auth/github");
+}

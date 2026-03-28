@@ -100,9 +100,14 @@ git clone "https://<github_user>:<pat>@github.com/<org>/<repo>.git" "$REPO_DIR"
 - In Google OAuth, set:
   - `Authorized JavaScript origins`: `https://fixmyvibecodedshit.com`
   - `Authorized redirect URIs`: `https://fixmyvibecodedshit.com/auth/google/callback`
+- In the GitHub App, set:
+  - `Setup URL`: `https://fixmyvibecodedshit.com/auth/github/callback`
+  - `Repository permissions`: `Contents: Read and write`, `Metadata: Read-only`
+  - During installation, users should choose `Only select repositories`
 - Run the Supabase schema once before the first real login.
 - Keep `FRONTEND_URL=https://fixmyvibecodedshit.com`.
 - Keep `GOOGLE_OAUTH_REDIRECT_URI=https://fixmyvibecodedshit.com/auth/google/callback`.
+- Keep `GITHUB_APP_SETUP_URL=https://fixmyvibecodedshit.com/auth/github/callback`.
 - Keep `ALLOWED_ORIGINS=https://fixmyvibecodedshit.com,https://www.fixmyvibecodedshit.com`.
 
 ### 1.5 Create the EC2 `.env`
@@ -124,6 +129,10 @@ SESSION_COOKIE_NAME=vibefix_session
 GOOGLE_OAUTH_CLIENT_ID=your-google-client-id
 GOOGLE_OAUTH_CLIENT_SECRET=your-google-client-secret
 GOOGLE_OAUTH_REDIRECT_URI=https://fixmyvibecodedshit.com/auth/google/callback
+GITHUB_APP_SLUG=your-github-app-slug
+GITHUB_APP_ID=your-github-app-id
+GITHUB_APP_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----"
+GITHUB_APP_SETUP_URL=https://fixmyvibecodedshit.com/auth/github/callback
 DB_HOST=aws-1-eu-central-1.pooler.supabase.com
 DB_PORT=6543
 DB_NAME=postgres

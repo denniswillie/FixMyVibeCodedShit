@@ -6,6 +6,7 @@ import type { OnboardingDraft } from "@/types/onboarding";
 interface CredentialsFormProps {
   value: OnboardingDraft;
   disabled: boolean;
+  onConnectGitHub: () => void;
   onChange: (nextValue: OnboardingDraft) => void;
 }
 
@@ -20,10 +21,12 @@ const helperClassName = "mt-2 text-xs leading-6 text-ink/52";
 export const CredentialsForm = ({
   value,
   disabled,
+  onConnectGitHub,
   onChange,
 }: CredentialsFormProps) => {
   const missingFields = getMissingFields(value);
   const ready = isDraftReady(value);
+  const githubConnected = Boolean(value.github.connection?.installationId);
 
   const updateField =
     (section: keyof OnboardingDraft, field: string) =>
@@ -76,6 +79,41 @@ export const CredentialsForm = ({
           <legend className="font-display text-sm font-semibold uppercase tracking-[0.18em] text-ink">
             GitHub write access
           </legend>
+          <div className="rounded-[1.4rem] border border-ink/10 bg-[#f8f1e3] px-5 py-5">
+            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+              <div className="max-w-xl">
+                <p className={labelClassName}>GitHub App access</p>
+                <p className="mt-2 text-sm leading-7 text-ink/68">
+                  Founders install the Vibefix GitHub App and select the repo we
+                  can read and write. No pasted personal access token required.
+                </p>
+                {githubConnected ? (
+                  <p className="mt-3 text-xs leading-6 text-ink/56">
+                    Connected to{" "}
+                    <span className="font-semibold text-ink">
+                      {value.github.connection?.accountLogin || "your GitHub account"}
+                    </span>
+                    {" "}
+                    with access to {value.github.connection?.repoCount || 0} repo
+                    {value.github.connection?.repoCount === 1 ? "" : "s"}.
+                  </p>
+                ) : (
+                  <p className="mt-3 text-xs leading-6 text-ink/56">
+                    The button opens GitHub so the founder can choose the exact
+                    repo installation directly.
+                  </p>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={onConnectGitHub}
+                disabled={disabled}
+                className="inline-flex min-h-12 items-center justify-center rounded-full bg-ink px-6 text-center font-display text-xs font-semibold uppercase tracking-[0.16em] text-sand transition hover:bg-[#10211e] disabled:cursor-not-allowed disabled:opacity-45"
+              >
+                Give us access to your GitHub repo
+              </button>
+            </div>
+          </div>
           <div className="grid gap-5 md:grid-cols-2">
             <label>
               <span className={labelClassName}>Repository URL</span>
@@ -96,20 +134,10 @@ export const CredentialsForm = ({
               />
             </label>
           </div>
-          <label>
-            <span className={labelClassName}>Personal access token</span>
-            <input
-              value={value.github.accessToken}
-              onChange={updateField("github", "accessToken")}
-              className={inputClassName}
-              placeholder="ghp_..."
-              type="password"
-            />
-            <p className={helperClassName}>
-              The Daytona repair workspace needs repo read/write access so the
-              agent can patch and push.
-            </p>
-          </label>
+          <p className={helperClassName}>
+            Keep the repo URL here aligned with the repo you selected during the
+            GitHub App install flow so the repair worker patches the right codebase.
+          </p>
         </fieldset>
 
         <fieldset disabled={disabled} className="grid gap-5 border-t border-ink/8 pt-7">

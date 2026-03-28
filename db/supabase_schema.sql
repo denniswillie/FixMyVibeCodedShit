@@ -49,6 +49,12 @@ create table if not exists public.agent_configs (
   github_repo_url text not null default '',
   github_branch text not null default 'main',
   github_access_token text not null default '',
+  github_installation_id bigint,
+  github_installation_account_login text not null default '',
+  github_installation_target_type text not null default '',
+  github_repository_selection text not null default '',
+  github_repo_count integer not null default 0,
+  github_connected_at timestamptz,
   ec2_host text not null default '',
   ec2_port integer not null default 22,
   ec2_username text not null default '',
@@ -77,3 +83,25 @@ create index if not exists agent_configs_status_next_triage_idx
 
 create index if not exists agent_configs_user_updated_idx
   on public.agent_configs (user_id, updated_at desc);
+
+alter table if exists public.agent_configs
+  add column if not exists github_installation_id bigint;
+
+alter table if exists public.agent_configs
+  add column if not exists github_installation_account_login text not null default '';
+
+alter table if exists public.agent_configs
+  add column if not exists github_installation_target_type text not null default '';
+
+alter table if exists public.agent_configs
+  add column if not exists github_repository_selection text not null default '';
+
+alter table if exists public.agent_configs
+  add column if not exists github_repo_count integer not null default 0;
+
+alter table if exists public.agent_configs
+  add column if not exists github_connected_at timestamptz;
+
+create index if not exists agent_configs_github_installation_idx
+  on public.agent_configs (github_installation_id)
+  where github_installation_id is not null;

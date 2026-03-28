@@ -6,7 +6,15 @@ describe("onboardingSchemas", () => {
       github: {
         repoUrl: "https://github.com/acme/fragile-launch",
         branch: "main",
-        accessToken: "ghp_demo"
+        accessToken: "",
+        connection: {
+          installationId: 99,
+          accountLogin: "acme",
+          targetType: "Organization",
+          repositorySelection: "selected",
+          repoCount: 1,
+          connectedAt: "2026-03-28T14:00:00.000Z"
+        }
       },
       ssh: {
         host: "ec2-1-2-3-4.compute.amazonaws.com",
@@ -33,7 +41,8 @@ describe("onboardingSchemas", () => {
         github: {
           repoUrl: "not-a-url",
           branch: "main",
-          accessToken: "ghp_demo"
+          accessToken: "",
+          connection: null
         },
         ssh: {
           host: "ec2-1-2-3-4.compute.amazonaws.com",

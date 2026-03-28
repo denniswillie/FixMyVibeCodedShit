@@ -14,6 +14,16 @@ export interface GitHubConfig {
   repoUrl: string;
   branch: string;
   accessToken: string;
+  connection: GitHubConnection | null;
+}
+
+export interface GitHubConnection {
+  installationId: number;
+  accountLogin: string;
+  targetType: string;
+  repositorySelection: string;
+  repoCount: number;
+  connectedAt: string | null;
 }
 
 export interface SshConfig {

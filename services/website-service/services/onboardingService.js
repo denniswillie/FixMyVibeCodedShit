@@ -2,12 +2,36 @@ function toIso(value) {
   return value ? new Date(value).toISOString() : null;
 }
 
+const AGENT_CONFIG_SELECT = `
+  github_repo_url,
+  github_branch,
+  github_access_token,
+  github_installation_id,
+  github_installation_account_login,
+  github_installation_target_type,
+  github_repository_selection,
+  github_repo_count,
+  github_connected_at,
+  ec2_host,
+  ec2_port,
+  ec2_username,
+  ec2_private_key,
+  docker_service,
+  log_tail,
+  check_every_minutes,
+  timezone,
+  status,
+  last_triaged_at,
+  next_triage_at
+`;
+
 function defaultAgentConfig() {
   return {
     github: {
       repoUrl: "",
       branch: "main",
-      accessToken: ""
+      accessToken: "",
+      connection: null
     },
     ssh: {
       host: "",
@@ -27,6 +51,23 @@ function defaultAgentConfig() {
   };
 }
 
+function mapGithubConnectionRow(row) {
+  const installationId = Number(row?.github_installation_id || 0);
+
+  if (!installationId) {
+    return null;
+  }
+
+  return {
+    installationId,
+    accountLogin: String(row.github_installation_account_login || ""),
+    targetType: String(row.github_installation_target_type || ""),
+    repositorySelection: String(row.github_repository_selection || ""),
+    repoCount: Number(row.github_repo_count || 0),
+    connectedAt: toIso(row.github_connected_at)
+  };
+}
+
 function mapAgentConfigRow(row) {
   if (!row) {
     return defaultAgentConfig();
@@ -36,7 +77,8 @@ function mapAgentConfigRow(row) {
     github: {
       repoUrl: row.github_repo_url,
       branch: row.github_branch,
-      accessToken: row.github_access_token
+      accessToken: row.github_access_token,
+      connection: mapGithubConnectionRow(row)
     },
     ssh: {
       host: row.ec2_host,
@@ -56,24 +98,24 @@ function mapAgentConfigRow(row) {
   };
 }
 
+function chooseGithubRepository(existingRepoUrl, repositories = []) {
+  if (!Array.isArray(repositories) || repositories.length === 0) {
+    return null;
+  }
+
+  const normalizedExistingRepoUrl = String(existingRepoUrl || "").trim().toLowerCase();
+  const matchedRepository = repositories.find(
+    (repository) => String(repository?.htmlUrl || "").trim().toLowerCase() === normalizedExistingRepoUrl
+  );
+
+  return matchedRepository || repositories[0];
+}
+
 async function getAgentConfigForUser({ dbPool, userId }) {
   const result = await dbPool.query(
     `
       select
-        github_repo_url,
-        github_branch,
-        github_access_token,
-        ec2_host,
-        ec2_port,
-        ec2_username,
-        ec2_private_key,
-        docker_service,
-        log_tail,
-        check_every_minutes,
-        timezone,
-        status,
-        last_triaged_at,
-        next_triage_at
+        ${AGENT_CONFIG_SELECT}
       from public.agent_configs
       where user_id = $1
       limit 1
@@ -82,6 +124,89 @@ async function getAgentConfigForUser({ dbPool, userId }) {
   );
 
   return mapAgentConfigRow(result.rows[0] || null);
+}
+
+async function connectGithubInstallationForUser({ dbPool, userId, installation }) {
+  const existingResult = await dbPool.query(
+    `
+      select
+        github_repo_url,
+        github_branch
+      from public.agent_configs
+      where user_id = $1
+      limit 1
+    `,
+    [userId]
+  );
+  const existingRow = existingResult.rows[0] || null;
+  const preferredRepository = chooseGithubRepository(
+    existingRow?.github_repo_url,
+    installation.repositories
+  );
+  const nextRepoUrl = preferredRepository?.htmlUrl || String(existingRow?.github_repo_url || "");
+  const nextBranch =
+    String(existingRow?.github_branch || "").trim() ||
+    preferredRepository?.defaultBranch ||
+    "main";
+
+  const result = await dbPool.query(
+    `
+      insert into public.agent_configs (
+        user_id,
+        github_repo_url,
+        github_branch,
+        github_installation_id,
+        github_installation_account_login,
+        github_installation_target_type,
+        github_repository_selection,
+        github_repo_count,
+        github_connected_at
+      )
+      values (
+        $1,
+        $2,
+        $3,
+        $4,
+        $5,
+        $6,
+        $7,
+        $8,
+        $9
+      )
+      on conflict (user_id)
+      do update set
+        github_repo_url = case
+          when excluded.github_repo_url <> '' then excluded.github_repo_url
+          else public.agent_configs.github_repo_url
+        end,
+        github_branch = case
+          when excluded.github_branch <> '' then excluded.github_branch
+          else public.agent_configs.github_branch
+        end,
+        github_installation_id = excluded.github_installation_id,
+        github_installation_account_login = excluded.github_installation_account_login,
+        github_installation_target_type = excluded.github_installation_target_type,
+        github_repository_selection = excluded.github_repository_selection,
+        github_repo_count = excluded.github_repo_count,
+        github_connected_at = excluded.github_connected_at,
+        updated_at = timezone('utc', now())
+      returning
+        ${AGENT_CONFIG_SELECT}
+    `,
+    [
+      userId,
+      nextRepoUrl,
+      nextBranch,
+      installation.installationId,
+      installation.accountLogin,
+      installation.targetType,
+      installation.repositorySelection,
+      installation.repoCount,
+      installation.connectedAt
+    ]
+  );
+
+  return mapAgentConfigRow(result.rows[0]);
 }
 
 async function upsertAgentConfig({ dbPool, userId, config }) {
@@ -136,20 +261,7 @@ async function upsertAgentConfig({ dbPool, userId, config }) {
         next_triage_at = timezone('utc', now()) + (excluded.check_every_minutes * interval '1 minute'),
         updated_at = timezone('utc', now())
       returning
-        github_repo_url,
-        github_branch,
-        github_access_token,
-        ec2_host,
-        ec2_port,
-        ec2_username,
-        ec2_private_key,
-        docker_service,
-        log_tail,
-        check_every_minutes,
-        timezone,
-        status,
-        last_triaged_at,
-        next_triage_at
+        ${AGENT_CONFIG_SELECT}
     `,
     [
       userId,
@@ -171,6 +283,8 @@ async function upsertAgentConfig({ dbPool, userId, config }) {
 }
 
 module.exports = {
+  chooseGithubRepository,
+  connectGithubInstallationForUser,
   defaultAgentConfig,
   getAgentConfigForUser,
   mapAgentConfigRow,
