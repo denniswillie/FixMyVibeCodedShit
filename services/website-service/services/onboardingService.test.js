@@ -1,6 +1,7 @@
 const {
   chooseGithubRepository,
   connectGithubInstallationForUser,
+  upsertAgentConfig,
   mapAgentConfigRow,
   mapLatestAgentRunRow
 } = require("./onboardingService");
@@ -163,5 +164,66 @@ describe("onboardingService", () => {
       commitSha: "abc123def456",
       deployed: true
     });
+  });
+
+  it("marks a saved config as immediately due for the first triage run", async () => {
+    const dbPool = {
+      query: vi.fn().mockResolvedValue({
+        rows: [
+          {
+            github_repo_url: "https://github.com/denniswillie/GitBio",
+            github_branch: "main",
+            github_access_token: "",
+            github_installation_id: 123,
+            github_installation_account_login: "denniswillie",
+            github_installation_target_type: "User",
+            github_repository_selection: "selected",
+            github_repo_count: 1,
+            github_connected_at: "2026-03-28T14:00:00.000Z",
+            aws_access_key_id: "AKIADEMO123",
+            aws_secret_access_key: "secret-demo",
+            aws_session_token: "",
+            aws_region: "eu-west-1",
+            ec2_instance_id: "i-06c6472bc2cb00ddd",
+            docker_service: "gitbio-website-service-1",
+            log_tail: 200,
+            check_every_minutes: 15,
+            timezone: "UTC",
+            status: "active",
+            last_triaged_at: null,
+            next_triage_at: "2026-03-28T14:00:00.000Z"
+          }
+        ]
+      })
+    };
+
+    await upsertAgentConfig({
+      dbPool,
+      userId: 7,
+      config: {
+        github: {
+          repoUrl: "https://github.com/denniswillie/GitBio",
+          branch: "main",
+          accessToken: "",
+          connection: null
+        },
+        aws: {
+          accessKeyId: "AKIADEMO123",
+          secretAccessKey: "secret-demo",
+          sessionToken: "",
+          region: "eu-west-1",
+          instanceId: "i-06c6472bc2cb00ddd",
+          dockerService: "gitbio-website-service-1",
+          logTail: 200
+        },
+        schedule: {
+          everyMinutes: 15,
+          timezone: "UTC"
+        }
+      }
+    });
+
+    expect(dbPool.query).toHaveBeenCalledTimes(1);
+    expect(dbPool.query.mock.calls[0][0]).toContain("next_triage_at = timezone('utc', now())");
   });
 });

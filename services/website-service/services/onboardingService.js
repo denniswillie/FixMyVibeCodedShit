@@ -307,7 +307,7 @@ async function upsertAgentConfig({ dbPool, userId, config }) {
         $12,
         $13,
         'active',
-        timezone('utc', now()) + ($12 * interval '1 minute')
+        timezone('utc', now())
       )
       on conflict (user_id)
       do update set
@@ -324,7 +324,7 @@ async function upsertAgentConfig({ dbPool, userId, config }) {
         check_every_minutes = excluded.check_every_minutes,
         timezone = excluded.timezone,
         status = 'active',
-        next_triage_at = timezone('utc', now()) + (excluded.check_every_minutes * interval '1 minute'),
+        next_triage_at = timezone('utc', now()),
         updated_at = timezone('utc', now())
       returning
         ${AGENT_CONFIG_SELECT}
