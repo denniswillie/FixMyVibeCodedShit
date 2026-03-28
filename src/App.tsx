@@ -4,18 +4,20 @@ import { ArrowDownRight, Github, Server, WandSparkles } from "lucide-react";
 import { CommandPreview } from "@/components/CommandPreview";
 import { CredentialsForm } from "@/components/CredentialsForm";
 import { DemoAuthPanel } from "@/components/DemoAuthPanel";
+import { GitHubDashboard } from "@/components/GitHubDashboard";
 import { HeroScene } from "@/components/HeroScene";
 import { buildDefaultDraft, isDraftReady } from "@/lib/onboarding";
 import {
   ApiError,
   beginGithubRepoAccess,
   beginGoogleSignIn,
+  getGithubRepos,
   getOnboardingConfig,
   getSession,
   logout,
   saveOnboardingConfig,
 } from "@/lib/websiteApi";
-import type { AuthenticatedUser, OnboardingDraft } from "@/types/onboarding";
+import type { AuthenticatedUser, GitHubConnection, GitHubRepository, OnboardingDraft } from "@/types/onboarding";
 
 const operators = [
   {
@@ -35,15 +37,52 @@ const operators = [
   },
 ];
 
+function normalizeDraft(config: OnboardingDraft): OnboardingDraft {
+  return {
+    github: {
+      ...config.github,
+      branch: String(config.github.branch),
+      accessToken: String(config.github.accessToken),
+      repoUrl: String(config.github.repoUrl),
+      connection: config.github.connection
+        ? {
+            ...config.github.connection,
+            installationId: Number(config.github.connection.installationId),
+            repoCount: Number(config.github.connection.repoCount),
+            connectedAt: config.github.connection.connectedAt,
+          }
+        : null,
+    },
+    ssh: {
+      ...config.ssh,
+      host: String(config.ssh.host),
+      port: String(config.ssh.port),
+      username: String(config.ssh.username),
+      privateKey: String(config.ssh.privateKey),
+      dockerService: String(config.ssh.dockerService),
+      logTail: String(config.ssh.logTail),
+    },
+    schedule: {
+      everyMinutes: String(config.schedule.everyMinutes),
+      timezone: String(config.schedule.timezone),
+    },
+  };
+}
+
 const App = () => {
   const setupRef = useRef<HTMLElement>(null);
   const [user, setUser] = useState<AuthenticatedUser | null>(null);
   const [draft, setDraft] = useState<OnboardingDraft>(() => buildDefaultDraft());
+  const [pathname, setPathname] = useState(() => window.location.pathname || "/");
   const [authLoading, setAuthLoading] = useState(true);
   const [configLoading, setConfigLoading] = useState(false);
+  const [githubReposLoading, setGithubReposLoading] = useState(false);
+  const [githubRepos, setGithubRepos] = useState<GitHubRepository[]>([]);
+  const [githubConnection, setGithubConnection] = useState<GitHubConnection | null>(null);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [message, setMessage] = useState<string | null>(null);
   const deferredDraft = useDeferredValue(draft);
+  const isDashboard = pathname === "/dashboard";
 
   const scrollToSetup = () => {
     const setupElement = setupRef.current;
@@ -51,6 +90,26 @@ const App = () => {
       setupElement.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   };
+
+  const navigateTo = (nextPath: string, options?: { replace?: boolean }) => {
+    if (options?.replace) {
+      window.history.replaceState({}, document.title, nextPath);
+    } else {
+      window.history.pushState({}, document.title, nextPath);
+    }
+    setPathname(window.location.pathname || "/");
+  };
+
+  useEffect(() => {
+    const handlePopState = () => {
+      setPathname(window.location.pathname || "/");
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+    };
+  }, []);
 
   useEffect(() => {
     let isActive = true;
@@ -84,7 +143,12 @@ const App = () => {
           startTransition(() => {
             setUser(null);
             setDraft(buildDefaultDraft());
+            setGithubRepos([]);
+            setGithubConnection(null);
           });
+          if (window.location.pathname === "/dashboard") {
+            navigateTo("/", { replace: true });
+          }
           setAuthLoading(false);
           return;
         }
@@ -106,36 +170,36 @@ const App = () => {
         }
 
         startTransition(() => {
-          setDraft({
-            github: {
-              ...onboarding.config.github,
-              branch: String(onboarding.config.github.branch),
-              accessToken: String(onboarding.config.github.accessToken),
-              repoUrl: String(onboarding.config.github.repoUrl),
-              connection: onboarding.config.github.connection
-                ? {
-                    ...onboarding.config.github.connection,
-                    installationId: Number(onboarding.config.github.connection.installationId),
-                    repoCount: Number(onboarding.config.github.connection.repoCount),
-                    connectedAt: onboarding.config.github.connection.connectedAt,
-                  }
-                : null,
-            },
-            ssh: {
-              ...onboarding.config.ssh,
-              host: String(onboarding.config.ssh.host),
-              port: String(onboarding.config.ssh.port),
-              username: String(onboarding.config.ssh.username),
-              privateKey: String(onboarding.config.ssh.privateKey),
-              dockerService: String(onboarding.config.ssh.dockerService),
-              logTail: String(onboarding.config.ssh.logTail),
-            },
-            schedule: {
-              everyMinutes: String(onboarding.config.schedule.everyMinutes),
-              timezone: String(onboarding.config.schedule.timezone),
-            },
-          });
+          const normalizedConfig = normalizeDraft(onboarding.config);
+          setDraft(normalizedConfig);
+          setGithubConnection(normalizedConfig.github.connection);
         });
+
+        if (window.location.pathname === "/dashboard") {
+          setGithubReposLoading(true);
+
+          if (onboarding.config.github.connection?.installationId) {
+            const githubAccess = await getGithubRepos();
+
+            if (!isActive) {
+              return;
+            }
+
+            startTransition(() => {
+              setGithubRepos(githubAccess.repos);
+              setGithubConnection(githubAccess.connection);
+            });
+          } else {
+            startTransition(() => {
+              setGithubRepos([]);
+              setGithubConnection(null);
+            });
+          }
+        } else {
+          startTransition(() => {
+            setGithubRepos([]);
+          });
+        }
       } catch (error) {
         if (!isActive) {
           return;
@@ -153,6 +217,7 @@ const App = () => {
 
         setAuthLoading(false);
         setConfigLoading(false);
+        setGithubReposLoading(false);
         if (authStatus || authError || githubStatus || githubError) {
           window.history.replaceState({}, document.title, window.location.pathname);
         }
@@ -164,7 +229,7 @@ const App = () => {
     return () => {
       isActive = false;
     };
-  }, []);
+  }, [pathname]);
 
   const handleSignIn = () => {
     beginGoogleSignIn();
@@ -184,9 +249,14 @@ const App = () => {
     startTransition(() => {
       setUser(null);
       setDraft(buildDefaultDraft());
+      setGithubRepos([]);
+      setGithubConnection(null);
     });
     setSaveState("idle");
     setMessage("Signed out. Sign in again to continue configuring the operator.");
+    if (pathname === "/dashboard") {
+      navigateTo("/", { replace: true });
+    }
   };
 
   const handleSave = async () => {
@@ -200,35 +270,9 @@ const App = () => {
     try {
       const result = await saveOnboardingConfig(draft);
       startTransition(() => {
-        setDraft({
-          github: {
-            ...result.config.github,
-            repoUrl: String(result.config.github.repoUrl),
-            branch: String(result.config.github.branch),
-            accessToken: String(result.config.github.accessToken),
-            connection: result.config.github.connection
-              ? {
-                  ...result.config.github.connection,
-                  installationId: Number(result.config.github.connection.installationId),
-                  repoCount: Number(result.config.github.connection.repoCount),
-                  connectedAt: result.config.github.connection.connectedAt,
-                }
-              : null,
-          },
-          ssh: {
-            ...result.config.ssh,
-            host: String(result.config.ssh.host),
-            port: String(result.config.ssh.port),
-            username: String(result.config.ssh.username),
-            privateKey: String(result.config.ssh.privateKey),
-            dockerService: String(result.config.ssh.dockerService),
-            logTail: String(result.config.ssh.logTail),
-          },
-          schedule: {
-            everyMinutes: String(result.config.schedule.everyMinutes),
-            timezone: String(result.config.schedule.timezone),
-          },
-        });
+        const normalizedConfig = normalizeDraft(result.config);
+        setDraft(normalizedConfig);
+        setGithubConnection(normalizedConfig.github.connection);
       });
       setSaveState("saved");
       setMessage("Operator credentials saved. The worker can pick this user up on the next run.");
@@ -241,6 +285,21 @@ const App = () => {
       );
     }
   };
+
+  if (user && isDashboard) {
+    return (
+      <GitHubDashboard
+        user={user}
+        connection={githubConnection}
+        repos={githubRepos}
+        isLoading={authLoading || configLoading || githubReposLoading}
+        message={message}
+        onBackToSetup={() => navigateTo("/")}
+        onSignOut={() => void handleSignOut()}
+        onConnectGitHub={handleGithubConnect}
+      />
+    );
+  }
 
   return (
     <div className="bg-[#f4ead9] text-ink">

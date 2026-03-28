@@ -9,6 +9,7 @@ dotenv.config();
 
 const { pool, gracefulShutdown } = require("./db");
 const buildAuthApiRouter = require("./routes/authApi");
+const buildGithubApiRouter = require("./routes/githubApi");
 const buildGithubAuthRouter = require("./routes/authGithub");
 const buildGoogleAuthRouter = require("./routes/authGoogle");
 const buildOnboardingApiRouter = require("./routes/onboardingApi");
@@ -75,6 +76,7 @@ app.get("/readyz", async (_req, res) => {
 });
 
 app.use("/api/auth", buildAuthApiRouter({ pool }));
+app.use("/api/github", buildGithubApiRouter({ pool }));
 app.use("/api/onboarding", buildOnboardingApiRouter({ pool }));
 app.use("/auth", buildGithubAuthRouter({ pool }));
 app.use("/auth", buildGoogleAuthRouter({ pool }));

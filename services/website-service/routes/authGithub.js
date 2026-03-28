@@ -47,8 +47,8 @@ function clearGithubStateCookie(res) {
   );
 }
 
-function buildFrontendRedirect(query = {}) {
-  const url = new URL("/", `${getFrontendUrl()}/`);
+function buildFrontendRedirect(pathname = "/", query = {}) {
+  const url = new URL(pathname, `${getFrontendUrl()}/`);
 
   Object.entries(query).forEach(([key, value]) => {
     if (value) {
@@ -73,7 +73,7 @@ function buildGithubAuthRouter({ pool }) {
 
   router.get("/github", async (req, res) => {
     if (!isGithubAppConfigured()) {
-      return res.redirect(buildFrontendRedirect({ github_error: "github_app_not_configured" }));
+      return res.redirect(buildFrontendRedirect("/", { github_error: "github_app_not_configured" }));
     }
 
     try {
@@ -81,7 +81,7 @@ function buildGithubAuthRouter({ pool }) {
 
       if (!user) {
         clearSessionCookie(res);
-        return res.redirect(buildFrontendRedirect({ github_error: "unauthorized" }));
+        return res.redirect(buildFrontendRedirect("/", { github_error: "unauthorized" }));
       }
 
       const stateToken = createOAuthStateToken();
@@ -90,7 +90,7 @@ function buildGithubAuthRouter({ pool }) {
     } catch (error) {
       console.error("[auth/github] error:", error);
       clearGithubStateCookie(res);
-      return res.redirect(buildFrontendRedirect({ github_error: "github_connect_failed" }));
+      return res.redirect(buildFrontendRedirect("/", { github_error: "github_connect_failed" }));
     }
   });
 
@@ -103,7 +103,7 @@ function buildGithubAuthRouter({ pool }) {
     clearGithubStateCookie(res);
 
     if (!expectedState || !returnedState || expectedState !== returnedState || !installationId) {
-      return res.redirect(buildFrontendRedirect({ github_error: "github_connect_failed" }));
+      return res.redirect(buildFrontendRedirect("/", { github_error: "github_connect_failed" }));
     }
 
     try {
@@ -111,7 +111,7 @@ function buildGithubAuthRouter({ pool }) {
 
       if (!user) {
         clearSessionCookie(res);
-        return res.redirect(buildFrontendRedirect({ github_error: "unauthorized" }));
+        return res.redirect(buildFrontendRedirect("/", { github_error: "unauthorized" }));
       }
 
       const installation = await fetchGithubInstallationContext(installationId);
@@ -121,10 +121,10 @@ function buildGithubAuthRouter({ pool }) {
         installation
       });
 
-      return res.redirect(buildFrontendRedirect({ github: "connected" }));
+      return res.redirect(buildFrontendRedirect("/dashboard", { github: "connected" }));
     } catch (error) {
       console.error("[auth/github/callback] error:", error);
-      return res.redirect(buildFrontendRedirect({ github_error: "github_connect_failed" }));
+      return res.redirect(buildFrontendRedirect("/", { github_error: "github_connect_failed" }));
     }
   });
 

@@ -2,6 +2,7 @@ import {
   ApiError,
   beginGithubRepoAccess,
   beginGoogleSignIn,
+  getGithubRepos,
   getOnboardingConfig,
   getSession,
   saveOnboardingConfig,
@@ -103,6 +104,48 @@ describe("websiteApi", () => {
         message: "Enter the required operator details.",
       })
     );
+  });
+
+  it("loads github repositories for the dashboard", async () => {
+    vi.mocked(fetch).mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          connected: true,
+          connection: {
+            installationId: 42,
+            accountLogin: "acme",
+            targetType: "Organization",
+            repositorySelection: "selected",
+            repoCount: 1,
+            connectedAt: "2026-03-28T15:00:00.000Z",
+          },
+          repos: [
+            {
+              id: 99,
+              name: "api",
+              fullName: "acme/api",
+              htmlUrl: "https://github.com/acme/api",
+              defaultBranch: "main",
+            },
+          ],
+        }),
+        {
+          status: 200,
+          headers: { "Content-Type": "application/json" },
+        }
+      )
+    );
+
+    const result = await getGithubRepos();
+
+    expect(fetch).toHaveBeenCalledWith(
+      "/api/github/repos",
+      expect.objectContaining({
+        method: "GET",
+        credentials: "include",
+      })
+    );
+    expect(result.repos[0]?.fullName).toBe("acme/api");
   });
 
   it("redirects the browser into google auth", () => {

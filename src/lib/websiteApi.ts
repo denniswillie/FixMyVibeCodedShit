@@ -1,4 +1,4 @@
-import type { OnboardingDraft, AuthenticatedUser } from "@/types/onboarding";
+import type { OnboardingDraft, AuthenticatedUser, GitHubConnection, GitHubRepository } from "@/types/onboarding";
 
 interface ApiErrorShape {
   error?: string;
@@ -12,6 +12,12 @@ export interface SessionResponse {
 
 export interface OnboardingConfigResponse {
   config: OnboardingDraft;
+}
+
+export interface GitHubReposResponse {
+  connected: boolean;
+  connection: GitHubConnection | null;
+  repos: GitHubRepository[];
 }
 
 export class ApiError extends Error {
@@ -74,6 +80,12 @@ export async function saveOnboardingConfig(config: OnboardingDraft) {
   return apiRequest<OnboardingConfigResponse>("/api/onboarding/config", {
     method: "PUT",
     body: JSON.stringify(config),
+  });
+}
+
+export async function getGithubRepos() {
+  return apiRequest<GitHubReposResponse>("/api/github/repos", {
+    method: "GET",
   });
 }
 
