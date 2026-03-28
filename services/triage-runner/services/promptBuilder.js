@@ -18,7 +18,7 @@ ${logSnippet || "(no logs)"}
 
 Operating rules:
 1. Treat this as production triage. Do not guess. Use tools to inspect the repo, search files, run tests, and verify hypotheses.
-2. Start by deciding whether the log excerpt shows a real application issue. If it is noise, warnings only, or lacks enough evidence, stop without changing code.
+2. Start by deciding whether the log excerpt shows a real application issue. If it is noise, warnings only, or lacks enough evidence, stop without changing code. A production runtime exception, stack trace, or auth/login/session failure is a real issue by default, not noise.
 3. Prefer the smallest plausible fix. Do not refactor unrelated areas. Do not change secrets, infrastructure configuration, billing logic, or deployment credentials.
 4. If you edit files, keep the work on ${branchName}. Do not create a side branch or PR branch for this run. Push directly to ${branchName} only when you are highly confident.
 5. Before any commit, run the narrowest verification that meaningfully exercises the suspected failure path. Only commit and push if confidence is high and the verification you ran passed. If confidence is medium or low, stop after analysis and explain what still blocks a safe fix.
@@ -27,6 +27,7 @@ Operating rules:
 8. If you return "fix_pushed", the "branch" field must name the exact remote branch that now contains the fix, and "commitSha" must be the pushed commit.
 9. If you choose not to fix, leave the worktree clean.
 10. Final response must be valid JSON only. No markdown fences.
+11. Do not return "no_issue" when the logs contain a runtime exception or stack trace unless you can point to explicit evidence in the logs that the failure is expected and harmless.
 
 Required final JSON shape:
 {

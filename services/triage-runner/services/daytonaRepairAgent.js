@@ -8,6 +8,16 @@ const SANDBOX_HOME = "/home/daytona";
 const REPO_ROOT = `${SANDBOX_HOME}/repo`;
 const CONTEXT_ROOT = `${SANDBOX_HOME}/context`;
 const PATCH_PATH = `${CONTEXT_ROOT}/fix.patch`;
+const CRITICAL_RUNTIME_FAILURE_PATTERNS = [
+  /\bTypeError\b/i,
+  /\bReferenceError\b/i,
+  /\bSyntaxError\b/i,
+  /\bRangeError\b/i,
+  /Cannot read properties/i,
+  /\blogin\w*.*failed\b/i,
+  /\bauth\].*failed\b/i,
+  /\bat\s+\S+.*:\d+:\d+/i,
+];
 
 function shellEscape(value) {
   return `'${String(value).replace(/'/g, `'\\''`)}'`;
@@ -131,6 +141,28 @@ function buildGitConfigCommand({ gitAuthorEmail, gitAuthorName }) {
   ].join(" && ");
 }
 
+function buildExhaustedIterationsResult({ targetBranch, logSnippet, toolNames }) {
+  const criticalRuntimeFailure = hasCriticalRuntimeFailure(logSnippet);
+
+  return {
+    decision: "needs_human",
+    confidence: criticalRuntimeFailure ? 0.62 : 0.45,
+    summary: criticalRuntimeFailure
+      ? "Vibefix confirmed a real production exception, but the repair agent used its full tool budget before it could finish a safe verified fix."
+      : "Vibefix used its full tool budget before it could finish a safe verified fix.",
+    rootCause: criticalRuntimeFailure
+      ? "The log excerpt shows a real runtime exception, but the repair loop did not converge before the Daytona tool budget was exhausted."
+      : "The repair loop did not converge before the Daytona tool budget was exhausted.",
+    fixSummary: "",
+    verification: toolNames.length
+      ? [`Repair agent exhausted its tool budget after using: ${toolNames.join(", ")}`]
+      : ["Repair agent exhausted its tool budget before producing a final response."],
+    branch: targetBranch,
+    commitSha: "",
+    pushed: false,
+  };
+}
+
 function extractToolCalls(response) {
   return Array.isArray(response.output)
     ? response.output.filter((item) => item.type === "function_call")
@@ -149,7 +181,12 @@ function parseJsonResponse(outputText) {
   return JSON.parse(rawText.slice(jsonStart, jsonEnd + 1));
 }
 
-function normalizeRepairResult(result, targetBranch) {
+function hasCriticalRuntimeFailure(logSnippet) {
+  const text = String(logSnippet || "");
+  return CRITICAL_RUNTIME_FAILURE_PATTERNS.some((pattern) => pattern.test(text));
+}
+
+function normalizeRepairResult(result, targetBranch, classifier, logSnippet) {
   const normalized = {
     ...result,
     branch: String(result?.branch || targetBranch).trim() || targetBranch,
@@ -157,6 +194,27 @@ function normalizeRepairResult(result, targetBranch) {
     pushed: Boolean(result?.pushed),
     verification: Array.isArray(result?.verification) ? result.verification : [],
   };
+
+  if (
+    normalized.decision === "no_issue" &&
+    String(classifier?.reason || "") === "actionable_error_detected" &&
+    hasCriticalRuntimeFailure(logSnippet)
+  ) {
+    return {
+      ...normalized,
+      decision: "needs_human",
+      confidence: Math.min(Number(normalized.confidence || 0), 0.75),
+      summary:
+        String(normalized.summary || "").trim() ||
+        "Production logs show a real runtime exception, so Vibefix refused to classify this run as healthy.",
+      rootCause:
+        String(normalized.rootCause || "").trim() ||
+        "A production runtime exception was present in the log excerpt, but the repair agent did not ship a verified fix.",
+      fixSummary: String(normalized.fixSummary || "").trim(),
+      commitSha: "",
+      pushed: false,
+    };
+  }
 
   if (normalized.decision === "fix_pushed") {
     if (normalized.branch !== targetBranch) {
@@ -315,6 +373,7 @@ export async function runRepairAgent({
     let previousResponseId;
     let pendingInputs = prompt;
     let finalText = "";
+    let lastToolNames = [];
 
     for (let iteration = 0; iteration < runnerConfig.maxAgentIterations; iteration += 1) {
       const response = await openai.responses.create(
@@ -329,6 +388,10 @@ export async function runRepairAgent({
 
       previousResponseId = response.id;
       const toolCalls = extractToolCalls(response);
+      lastToolNames = toolCalls.map((call) => String(call.name || "")).filter(Boolean);
+      console.log(
+        `[triage-runner] user=${claimedConfig.userId} agent iteration=${iteration + 1}/${runnerConfig.maxAgentIterations} tool_calls=${lastToolNames.join(", ") || "none"}`
+      );
 
       if (!toolCalls.length) {
         finalText = response.output_text || "";
@@ -403,10 +466,55 @@ export async function runRepairAgent({
     }
 
     if (!finalText) {
-      throw new Error("Repair agent exhausted iterations without a final response.");
+      try {
+        const finalResponse = await openai.responses.create(
+          buildResponseCreateParams({
+            input: pendingInputs,
+            model: runnerConfig.openAiModel,
+            previousResponseId,
+            reasoningEffort: runnerConfig.openAiReasoningEffort,
+            tools: [],
+          })
+        );
+        finalText = String(finalResponse.output_text || "").trim();
+      } catch (error) {
+        console.warn("[triage-runner] repair agent final synthesis failed:", error);
+      }
     }
 
-    const normalizedResult = normalizeRepairResult(parseJsonResponse(finalText), targetBranch);
+    if (!finalText) {
+      return {
+        branchName: targetBranch,
+        patchText: "",
+        result: buildExhaustedIterationsResult({
+          targetBranch,
+          logSnippet,
+          toolNames: lastToolNames,
+        }),
+      };
+    }
+
+    let normalizedResult;
+
+    try {
+      normalizedResult = normalizeRepairResult(
+        parseJsonResponse(finalText),
+        targetBranch,
+        classifier,
+        logSnippet
+      );
+    } catch (error) {
+      console.warn("[triage-runner] repair agent returned non-JSON final output:", finalText);
+      return {
+        branchName: targetBranch,
+        patchText: "",
+        result: buildExhaustedIterationsResult({
+          targetBranch,
+          logSnippet,
+          toolNames: lastToolNames,
+        }),
+      };
+    }
     let patchText = "";
     let commitSha = normalizedResult.commitSha;
 
@@ -435,11 +543,14 @@ export async function runRepairAgent({
 
 export {
   buildCloneCommand,
+  buildExhaustedIterationsResult,
   buildGitConfigCommand,
   buildResponseCreateParams,
+  hasCriticalRuntimeFailure,
   CONTEXT_ROOT,
   REPO_ROOT,
   SANDBOX_HOME,
   buildToolDefinitions,
+  normalizeRepairResult,
   runSandboxCommand,
 };

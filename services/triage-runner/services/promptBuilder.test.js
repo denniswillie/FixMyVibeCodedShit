@@ -28,6 +28,8 @@ describe("promptBuilder", () => {
     expect(prompt).toContain("[error] checkout 500");
     expect(prompt).toContain("Do not create a side branch");
     expect(prompt).toContain("keep it to a single commit");
+    expect(prompt).toContain("runtime exception, stack trace, or auth/login/session failure is a real issue");
+    expect(prompt).toContain('Do not return "no_issue" when the logs contain a runtime exception');
     expect(prompt).toContain("\"decision\": \"no_issue\" | \"needs_human\" | \"fix_pushed\"");
   });
 });

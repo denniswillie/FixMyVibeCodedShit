@@ -122,7 +122,16 @@ function buildRunPayloadFromOutcome(processedResult) {
     return {
       status: "no_issue",
       ...basePayload,
-      summary: "Latest logs looked healthy enough to skip an automated repair run.",
+      summary:
+        processedResult.repairRun?.result?.summary ||
+        "Latest logs looked healthy enough to skip an automated repair run.",
+      rootCause: processedResult.repairRun?.result?.rootCause || "",
+      fixSummary: processedResult.repairRun?.result?.fixSummary || "",
+      patchText: processedResult.repairRun?.patchText || "",
+      verification: processedResult.repairRun?.result?.verification || [],
+      branch: processedResult.repairRun?.result?.branch || processedResult.repairRun?.branchName || "",
+      commitSha: processedResult.repairRun?.result?.commitSha || "",
+      pushed: Boolean(processedResult.repairRun?.result?.pushed),
     };
   }
 
@@ -181,6 +190,8 @@ function buildRunPayloadFromOutcome(processedResult) {
     errorMessage: String(processedResult?.error?.message || processedResult?.error || ""),
   };
 }
+
+export { buildRunPayloadFromOutcome };
 
 export async function runForever() {
   const runnerConfig = loadRunnerConfig();

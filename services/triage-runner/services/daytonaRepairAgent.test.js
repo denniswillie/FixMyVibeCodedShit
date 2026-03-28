@@ -1,9 +1,12 @@
 import {
   buildCloneCommand,
+  buildExhaustedIterationsResult,
   buildGitConfigCommand,
   buildResponseCreateParams,
   buildToolDefinitions,
   CONTEXT_ROOT,
+  hasCriticalRuntimeFailure,
+  normalizeRepairResult,
   REPO_ROOT,
   SANDBOX_HOME,
   runSandboxCommand,
@@ -83,5 +86,60 @@ describe("daytonaRepairAgent", () => {
     expect(command).toContain("config user.name 'Vibefix Bot'");
     expect(command).toContain("config user.email 'bot@vibefix.dev'");
     expect(command).toContain("'/home/daytona/repo'");
+  });
+
+  it("recognizes critical runtime failures in production logs", () => {
+    expect(
+      hasCriticalRuntimeFailure(`
+        [auth] loginWithGoogleProfile failed: TypeError: Cannot read properties of undefined
+            at createSessionForUser (/usr/src/app/services/sessionService.js:120:28)
+      `)
+    ).toBe(true);
+  });
+
+  it("upgrades actionable no_issue decisions to needs_human for runtime exceptions", () => {
+    const normalized = normalizeRepairResult(
+      {
+        decision: "no_issue",
+        confidence: 0.91,
+        summary: "",
+        rootCause: "",
+        fixSummary: "",
+        verification: [],
+        branch: "master",
+        commitSha: "",
+        pushed: false,
+      },
+      "master",
+      {
+        reason: "actionable_error_detected",
+        matchedPatterns: ["error"],
+      },
+      `
+        [auth] loginWithGoogleProfile failed: TypeError: Cannot read properties of undefined
+            at createSessionForUser (/usr/src/app/services/sessionService.js:120:28)
+      `
+    );
+
+    expect(normalized.decision).toBe("needs_human");
+    expect(normalized.pushed).toBe(false);
+    expect(normalized.summary).toMatch(/runtime exception/i);
+  });
+
+  it("returns a non-crashing needs_human fallback when the tool loop exhausts", () => {
+    const result = buildExhaustedIterationsResult({
+      targetBranch: "master",
+      logSnippet: `
+        [auth] loginWithGoogleProfile failed: TypeError: Cannot read properties of undefined
+            at createSessionForUser (/usr/src/app/services/sessionService.js:120:28)
+      `,
+      toolNames: ["run_command", "read_file"],
+    });
+
+    expect(result.decision).toBe("needs_human");
+    expect(result.branch).toBe("master");
+    expect(result.pushed).toBe(false);
+    expect(result.summary).toMatch(/real production exception/i);
+    expect(result.verification[0]).toMatch(/run_command, read_file/);
   });
 });
