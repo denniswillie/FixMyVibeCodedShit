@@ -49,6 +49,25 @@ export interface ScheduleConfig {
   timezone: string;
 }
 
+export interface AgentRunUpdate {
+  id: string;
+  status: "running" | "no_issue" | "needs_human" | "fix_pushed" | "deployed" | "failed";
+  classifierReason: string;
+  summary: string;
+  rootCause: string;
+  fixSummary: string;
+  patchText: string;
+  branch: string;
+  commitSha: string;
+  pushed: boolean;
+  deployed: boolean;
+  errorMessage: string;
+  startedAt: string | null;
+  finishedAt: string | null;
+  deployedAt: string | null;
+  createdAt: string | null;
+}
+
 export interface OnboardingDraft {
   github: GitHubConfig;
   aws: AwsConfig;

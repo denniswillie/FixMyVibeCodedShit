@@ -6,6 +6,7 @@ import { buildRepairPrompt } from "./promptBuilder.js";
 
 const REPO_ROOT = "/workspace/repo";
 const CONTEXT_ROOT = "/workspace/context";
+const PATCH_PATH = `${CONTEXT_ROOT}/fix.patch`;
 
 function truncateResult(value, limit = 12_000) {
   const text = String(value || "");
@@ -15,10 +16,6 @@ function truncateResult(value, limit = 12_000) {
   }
 
   return `${text.slice(0, limit)}\n...[truncated ${text.length - limit} chars]`;
-}
-
-function buildBranchName(config, claimedConfig) {
-  return `${config.branchPrefix}${claimedConfig.userId}-${Date.now()}`;
 }
 
 function buildToolDefinitions() {
@@ -107,6 +104,62 @@ function parseJsonResponse(outputText) {
   return JSON.parse(rawText.slice(jsonStart, jsonEnd + 1));
 }
 
+function normalizeRepairResult(result, targetBranch) {
+  const normalized = {
+    ...result,
+    branch: String(result?.branch || targetBranch).trim() || targetBranch,
+    commitSha: String(result?.commitSha || "").trim(),
+    pushed: Boolean(result?.pushed),
+    verification: Array.isArray(result?.verification) ? result.verification : [],
+  };
+
+  if (normalized.decision === "fix_pushed") {
+    if (normalized.branch !== targetBranch) {
+      throw new Error(`Repair agent pushed to ${normalized.branch}, expected ${targetBranch}.`);
+    }
+
+    if (!normalized.pushed || !normalized.commitSha) {
+      throw new Error("Repair agent reported fix_pushed without a pushed commit SHA.");
+    }
+  }
+
+  return normalized;
+}
+
+async function collectFixArtifacts(sandbox, targetBranch, timeoutSeconds) {
+  const headSha = await sandbox.process.executeCommand(
+    `git -C ${REPO_ROOT} rev-parse HEAD`,
+    undefined,
+    undefined,
+    timeoutSeconds
+  );
+  const commitSha = String(headSha.result || "").trim();
+
+  if (!commitSha) {
+    throw new Error("Unable to resolve HEAD after the repair push.");
+  }
+
+  await sandbox.process.executeCommand(
+    `git -C ${REPO_ROOT} format-patch -1 --stdout HEAD > ${PATCH_PATH}`,
+    undefined,
+    undefined,
+    timeoutSeconds
+  );
+
+  const patchBuffer = await sandbox.fs.downloadFile(PATCH_PATH);
+  const patchText = patchBuffer.toString();
+
+  if (!patchText.trim()) {
+    throw new Error("Generated patch artifact was empty.");
+  }
+
+  return {
+    branch: targetBranch,
+    commitSha,
+    patchText,
+  };
+}
+
 export async function runRepairAgent({
   claimedConfig,
   githubToken,
@@ -121,13 +174,15 @@ export async function runRepairAgent({
   });
   const openai = new OpenAI();
   const { owner, repo } = parseGithubRepoUrl(claimedConfig.github.repoUrl);
-  const branchName = buildBranchName(runnerConfig, claimedConfig);
+  const targetBranch =
+    String(runnerConfig.targetBranchOverride || claimedConfig.github.branch || "main").trim() ||
+    "main";
   const repoCloneUrl = buildAuthenticatedRepoUrl(claimedConfig.github.repoUrl, githubToken);
   const sandbox = await daytona.create({
     language: runnerConfig.daytonaLanguage,
     autoStopInterval: runnerConfig.daytonaAutoStopInterval,
     envVars: {
-      VIBEFIX_BRANCH_NAME: branchName,
+      VIBEFIX_TARGET_BRANCH: targetBranch,
       VIBEFIX_REPO_OWNER: owner,
       VIBEFIX_REPO_NAME: repo,
     },
@@ -143,7 +198,13 @@ export async function runRepairAgent({
       runnerConfig.commandTimeoutSeconds
     );
     await sandbox.process.executeCommand(
-      `git -C ${REPO_ROOT} checkout -b ${branchName}`,
+      `git -C ${REPO_ROOT} checkout ${targetBranch}`,
+      undefined,
+      undefined,
+      runnerConfig.commandTimeoutSeconds
+    );
+    await sandbox.process.executeCommand(
+      `git -C ${REPO_ROOT} pull --ff-only origin ${targetBranch}`,
       undefined,
       undefined,
       runnerConfig.commandTimeoutSeconds
@@ -166,7 +227,7 @@ export async function runRepairAgent({
               claimedConfig,
               classifier,
               pollTimestamp: new Date().toISOString(),
-              branchName,
+              targetBranch,
             },
             null,
             2
@@ -178,7 +239,7 @@ export async function runRepairAgent({
 
     const prompt = buildRepairPrompt({
       claimedConfig,
-      branchName,
+      branchName: targetBranch,
       logSnippet,
       classifier,
       pollTimestamp: new Date().toISOString(),
@@ -280,9 +341,27 @@ export async function runRepairAgent({
       throw new Error("Repair agent exhausted iterations without a final response.");
     }
 
+    const normalizedResult = normalizeRepairResult(parseJsonResponse(finalText), targetBranch);
+    let patchText = "";
+    let commitSha = normalizedResult.commitSha;
+
+    if (normalizedResult.decision === "fix_pushed") {
+      const artifacts = await collectFixArtifacts(
+        sandbox,
+        targetBranch,
+        runnerConfig.commandTimeoutSeconds
+      );
+      patchText = artifacts.patchText;
+      commitSha = artifacts.commitSha;
+    }
+
     return {
-      branchName,
-      result: parseJsonResponse(finalText),
+      branchName: targetBranch,
+      patchText,
+      result: {
+        ...normalizedResult,
+        commitSha,
+      },
     };
   } finally {
     await sandbox.delete();

@@ -1,6 +1,7 @@
 import { ArrowLeft, ArrowUpRight, Github, RotateCcw } from "lucide-react";
 
 import type {
+  AgentRunUpdate,
   AuthenticatedUser,
   GitHubConnection,
   GitHubRepository,
@@ -14,6 +15,7 @@ interface GitHubDashboardProps {
   config: OnboardingDraft;
   isLoading: boolean;
   message?: string | null;
+  latestRun: AgentRunUpdate | null;
   onBackToSetup: () => void;
   onSignOut: () => void;
   onConnectGitHub: () => void;
@@ -23,6 +25,38 @@ function repositorySelectionLabel(selection: string | undefined) {
   return selection === "all" ? "All repositories" : "Selected repositories";
 }
 
+function latestMoment(...values: Array<string | null | undefined>) {
+  return values.find(Boolean) || null;
+}
+
+function formatRunStatus(status: AgentRunUpdate["status"] | undefined) {
+  switch (status) {
+    case "deployed":
+      return "Fix deployed";
+    case "fix_pushed":
+      return "Fix pushed";
+    case "needs_human":
+      return "Needs review";
+    case "failed":
+      return "Run failed";
+    case "no_issue":
+      return "No issue";
+    default:
+      return "Running";
+  }
+}
+
+function formatTimestamp(value: string | null | undefined) {
+  if (!value) {
+    return "Pending";
+  }
+
+  return new Intl.DateTimeFormat(undefined, {
+    dateStyle: "medium",
+    timeStyle: "short",
+  }).format(new Date(value));
+}
+
 export const GitHubDashboard = ({
   user,
   connection,
@@ -30,11 +64,13 @@ export const GitHubDashboard = ({
   config,
   isLoading,
   message = null,
+  latestRun,
   onBackToSetup,
   onSignOut,
   onConnectGitHub,
 }: GitHubDashboardProps) => {
   const isConnected = Boolean(connection?.installationId);
+  const latestRunMoment = latestMoment(latestRun?.deployedAt, latestRun?.finishedAt, latestRun?.startedAt, latestRun?.createdAt);
 
   return (
     <main className="min-h-screen overflow-hidden bg-[#07110f] text-sand">
@@ -97,6 +133,44 @@ export const GitHubDashboard = ({
                 <p>Instance: {config.aws.instanceId || "Pending"}</p>
                 <p>Docker service: {config.aws.dockerService || "Pending"}</p>
                 <p>Schedule: every {config.schedule.everyMinutes || "15"} minutes</p>
+              </div>
+              <div className="mt-8 rounded-[1.6rem] border border-white/10 bg-black/10 px-5 py-5">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <p className="font-display text-xs font-semibold uppercase tracking-[0.18em] text-sand/45">
+                      Latest worker update
+                    </p>
+                    <h3 className="mt-3 font-serif text-2xl font-semibold text-sand">
+                      {latestRun ? formatRunStatus(latestRun.status) : "No runs yet"}
+                    </h3>
+                  </div>
+                  {latestRun ? (
+                    <span className="inline-flex rounded-full border border-white/10 bg-white/5 px-4 py-2 font-display text-xs font-semibold uppercase tracking-[0.18em] text-sand/76">
+                      {formatTimestamp(latestRunMoment)}
+                    </span>
+                  ) : null}
+                </div>
+                <p className="mt-4 text-sm leading-7 text-sand/70">
+                  {latestRun?.summary || "Once the poller sees logs for this founder, the latest triage result and deploy status will land here."}
+                </p>
+                {latestRun ? (
+                  <div className="mt-5 grid gap-3 text-sm leading-7 text-sand/66 sm:grid-cols-2">
+                    <p>Commit: {latestRun.commitSha || "Pending"}</p>
+                    <p>Branch: {latestRun.branch || "Pending"}</p>
+                    <p>Deploy: {latestRun.deployed ? `Live at ${formatTimestamp(latestRun.deployedAt)}` : latestRun.pushed ? "Pushed, awaiting deploy" : "Not deployed"}</p>
+                    <p>Classifier: {latestRun.classifierReason || "Pending"}</p>
+                  </div>
+                ) : null}
+                {latestRun?.rootCause ? (
+                  <p className="mt-4 text-sm leading-7 text-sand/62">
+                    Root cause: {latestRun.rootCause}
+                  </p>
+                ) : null}
+                {latestRun?.errorMessage ? (
+                  <p className="mt-4 text-sm leading-7 text-[#ffb07a]">
+                    {latestRun.errorMessage}
+                  </p>
+                ) : null}
               </div>
             </div>
 

@@ -17,7 +17,13 @@ import {
   logout,
   saveOnboardingConfig,
 } from "@/lib/websiteApi";
-import type { AuthenticatedUser, GitHubConnection, GitHubRepository, OnboardingDraft } from "@/types/onboarding";
+import type {
+  AgentRunUpdate,
+  AuthenticatedUser,
+  GitHubConnection,
+  GitHubRepository,
+  OnboardingDraft,
+} from "@/types/onboarding";
 
 const operators = [
   {
@@ -70,6 +76,32 @@ function normalizeDraft(config: OnboardingDraft): OnboardingDraft {
   };
 }
 
+function normalizeLatestRun(run: AgentRunUpdate | null | undefined): AgentRunUpdate | null {
+  if (!run) {
+    return null;
+  }
+
+  return {
+    ...run,
+    id: String(run.id),
+    status: run.status,
+    classifierReason: String(run.classifierReason || ""),
+    summary: String(run.summary || ""),
+    rootCause: String(run.rootCause || ""),
+    fixSummary: String(run.fixSummary || ""),
+    patchText: String(run.patchText || ""),
+    branch: String(run.branch || ""),
+    commitSha: String(run.commitSha || ""),
+    pushed: Boolean(run.pushed),
+    deployed: Boolean(run.deployed),
+    errorMessage: String(run.errorMessage || ""),
+    startedAt: run.startedAt || null,
+    finishedAt: run.finishedAt || null,
+    deployedAt: run.deployedAt || null,
+    createdAt: run.createdAt || null,
+  };
+}
+
 const App = () => {
   const setupRef = useRef<HTMLElement>(null);
   const [user, setUser] = useState<AuthenticatedUser | null>(null);
@@ -80,6 +112,7 @@ const App = () => {
   const [githubReposLoading, setGithubReposLoading] = useState(false);
   const [githubRepos, setGithubRepos] = useState<GitHubRepository[]>([]);
   const [githubConnection, setGithubConnection] = useState<GitHubConnection | null>(null);
+  const [latestRun, setLatestRun] = useState<AgentRunUpdate | null>(null);
   const [saveState, setSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [message, setMessage] = useState<string | null>(null);
   const deferredDraft = useDeferredValue(draft);
@@ -146,6 +179,7 @@ const App = () => {
             setDraft(buildDefaultDraft());
             setGithubRepos([]);
             setGithubConnection(null);
+            setLatestRun(null);
           });
           if (window.location.pathname === "/dashboard") {
             navigateTo("/", { replace: true });
@@ -174,6 +208,7 @@ const App = () => {
           const normalizedConfig = normalizeDraft(onboarding.config);
           setDraft(normalizedConfig);
           setGithubConnection(normalizedConfig.github.connection);
+          setLatestRun(normalizeLatestRun(onboarding.latestRun));
         });
 
         const normalizedConfig = normalizeDraft(onboarding.config);
@@ -269,6 +304,7 @@ const App = () => {
       setDraft(buildDefaultDraft());
       setGithubRepos([]);
       setGithubConnection(null);
+      setLatestRun(null);
     });
     setSaveState("idle");
     setMessage("Signed out. Sign in again to continue configuring the operator.");
@@ -291,6 +327,7 @@ const App = () => {
         const normalizedConfig = normalizeDraft(result.config);
         setDraft(normalizedConfig);
         setGithubConnection(normalizedConfig.github.connection);
+        setLatestRun(normalizeLatestRun(result.latestRun));
       });
       setSaveState("saved");
       if (isDraftReady(normalizeDraft(result.config))) {
@@ -318,6 +355,7 @@ const App = () => {
         config={draft}
         isLoading={authLoading || configLoading || githubReposLoading}
         message={message}
+        latestRun={latestRun}
         onBackToSetup={() => navigateTo("/")}
         onSignOut={() => void handleSignOut()}
         onConnectGitHub={handleGithubConnect}
@@ -351,8 +389,8 @@ const App = () => {
               <p className="mt-4 max-w-2xl text-base leading-8 text-ink/68">
                 Google sign-in identifies the founder. GitHub grants repo
                 write-back. One uploaded AWS credentials file grants SSM log access.
-                The worker can turn the cadence fields into the same scheduled-run
-                pattern you already use elsewhere.
+                The setup only keeps the EC2 target details that the upload cannot
+                infer on its own.
               </p>
             </div>
 

@@ -141,29 +141,9 @@ export const CredentialsForm = ({
               </button>
             </div>
           </div>
-          <div className="grid gap-5 md:grid-cols-2">
-            <label>
-              <span className={labelClassName}>Repository URL</span>
-              <input
-                value={value.github.repoUrl}
-                onChange={updateField("github", "repoUrl")}
-                className={inputClassName}
-                placeholder="https://github.com/acme/fragile-launch"
-              />
-            </label>
-            <label>
-              <span className={labelClassName}>Default branch</span>
-              <input
-                value={value.github.branch}
-                onChange={updateField("github", "branch")}
-                className={inputClassName}
-                placeholder="main"
-              />
-            </label>
-          </div>
           <p className={helperClassName}>
-            Keep the repo URL here aligned with the repo you selected during the
-            GitHub App install flow so the repair worker patches the right codebase.
+            Vibefix uses the repositories exposed by the GitHub App install flow,
+            so there is no separate repo URL or branch field to keep in sync here.
           </p>
         </fieldset>
 
@@ -180,8 +160,8 @@ export const CredentialsForm = ({
                   user that can call SSM on the target instance.
                 </p>
                 <p className="mt-3 text-xs leading-6 text-ink/56">
-                  Vibefix stores the parsed key id, secret, optional session token,
-                  plus the EC2 target details below.
+                  Vibefix parses the key id, secret, and optional session token from
+                  the upload, then pairs them with the target details below.
                 </p>
               </div>
               <label className="inline-flex min-h-12 cursor-pointer items-center justify-center rounded-full bg-ink px-6 text-center font-display text-xs font-semibold uppercase tracking-[0.16em] text-sand transition hover:bg-[#10211e]">
@@ -198,27 +178,6 @@ export const CredentialsForm = ({
             {awsUploadMessage ? (
               <p className="mt-4 text-xs leading-6 text-ink/56">{awsUploadMessage}</p>
             ) : null}
-          </div>
-          <div className="grid gap-5 md:grid-cols-2">
-            <label>
-              <span className={labelClassName}>AWS access key id</span>
-              <input
-                value={value.aws.accessKeyId}
-                onChange={updateField("aws", "accessKeyId")}
-                className={inputClassName}
-                placeholder="AKIA..."
-              />
-            </label>
-            <label>
-              <span className={labelClassName}>AWS secret access key</span>
-              <input
-                type="password"
-                value={value.aws.secretAccessKey}
-                onChange={updateField("aws", "secretAccessKey")}
-                className={inputClassName}
-                placeholder="Secret access key"
-              />
-            </label>
           </div>
           <div className="grid gap-5 md:grid-cols-3">
             <label>
@@ -249,55 +208,9 @@ export const CredentialsForm = ({
               />
             </label>
           </div>
-          <div className="grid gap-5 md:grid-cols-2">
-            <label>
-              <span className={labelClassName}>Tail lines</span>
-              <input
-                value={value.aws.logTail}
-                onChange={updateField("aws", "logTail")}
-                className={inputClassName}
-                placeholder="200"
-              />
-            </label>
-            <label>
-              <span className={labelClassName}>Session token (optional)</span>
-              <input
-                value={value.aws.sessionToken}
-                onChange={updateField("aws", "sessionToken")}
-                className={inputClassName}
-                placeholder="Optional STS session token"
-              />
-            </label>
-          </div>
-        </fieldset>
-
-        <fieldset disabled={disabled} className="grid gap-5 border-t border-ink/8 pt-7">
-          <legend className="font-display text-sm font-semibold uppercase tracking-[0.18em] text-ink">
-            Worker cadence
-          </legend>
-          <div className="grid gap-5 md:grid-cols-2">
-            <label>
-              <span className={labelClassName}>Every N minutes</span>
-              <input
-                value={value.schedule.everyMinutes}
-                onChange={updateField("schedule", "everyMinutes")}
-                className={inputClassName}
-                placeholder="15"
-              />
-            </label>
-            <label>
-              <span className={labelClassName}>Timezone</span>
-              <input
-                value={value.schedule.timezone}
-                onChange={updateField("schedule", "timezone")}
-                className={inputClassName}
-                placeholder="Europe/Dublin"
-              />
-            </label>
-          </div>
           <p className={helperClassName}>
-            The worker can translate this directly into the `scheduled_run_time`
-            style cadence you already use elsewhere.
+            The worker currently uses the default 15-minute cadence and tails the
+            most recent 200 log lines unless you change those defaults in code.
           </p>
         </fieldset>
       </form>

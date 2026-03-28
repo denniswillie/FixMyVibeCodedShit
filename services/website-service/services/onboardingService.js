@@ -26,6 +26,25 @@ const AGENT_CONFIG_SELECT = `
   next_triage_at
 `;
 
+const AGENT_RUN_SELECT = `
+  id,
+  status,
+  classifier_reason,
+  summary,
+  root_cause,
+  fix_summary,
+  patch_text,
+  branch,
+  commit_sha,
+  pushed,
+  deployed,
+  error_message,
+  started_at,
+  finished_at,
+  deployed_at,
+  created_at
+`;
+
 function defaultAgentConfig() {
   return {
     github: {
@@ -101,6 +120,31 @@ function mapAgentConfigRow(row) {
   };
 }
 
+function mapLatestAgentRunRow(row) {
+  if (!row) {
+    return null;
+  }
+
+  return {
+    id: String(row.id),
+    status: String(row.status || "running"),
+    classifierReason: String(row.classifier_reason || ""),
+    summary: String(row.summary || ""),
+    rootCause: String(row.root_cause || ""),
+    fixSummary: String(row.fix_summary || ""),
+    patchText: String(row.patch_text || ""),
+    branch: String(row.branch || ""),
+    commitSha: String(row.commit_sha || ""),
+    pushed: Boolean(row.pushed),
+    deployed: Boolean(row.deployed),
+    errorMessage: String(row.error_message || ""),
+    startedAt: toIso(row.started_at),
+    finishedAt: toIso(row.finished_at),
+    deployedAt: toIso(row.deployed_at),
+    createdAt: toIso(row.created_at)
+  };
+}
+
 function chooseGithubRepository(existingRepoUrl, repositories = []) {
   if (!Array.isArray(repositories) || repositories.length === 0) {
     return null;
@@ -127,6 +171,22 @@ async function getAgentConfigForUser({ dbPool, userId }) {
   );
 
   return mapAgentConfigRow(result.rows[0] || null);
+}
+
+async function getLatestAgentRunForUser({ dbPool, userId }) {
+  const result = await dbPool.query(
+    `
+      select
+        ${AGENT_RUN_SELECT}
+      from public.agent_runs
+      where user_id = $1
+      order by coalesce(finished_at, started_at, created_at) desc, created_at desc
+      limit 1
+    `,
+    [userId]
+  );
+
+  return mapLatestAgentRunRow(result.rows[0] || null);
 }
 
 async function connectGithubInstallationForUser({ dbPool, userId, installation }) {
@@ -294,6 +354,8 @@ module.exports = {
   connectGithubInstallationForUser,
   defaultAgentConfig,
   getAgentConfigForUser,
+  getLatestAgentRunForUser,
   mapAgentConfigRow,
+  mapLatestAgentRunRow,
   upsertAgentConfig
 };

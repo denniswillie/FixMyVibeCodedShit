@@ -4,7 +4,7 @@ export const buildDefaultDraft = (
   timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC"
 ): OnboardingDraft => ({
   github: {
-    repoUrl: "https://github.com/acme/fragile-launch",
+    repoUrl: "",
     branch: "main",
     accessToken: "",
     connection: null,
@@ -26,10 +26,6 @@ export const buildDefaultDraft = (
 
 export const getMissingFields = (draft: OnboardingDraft) => {
   const missing: string[] = [];
-
-  if (!draft.github.repoUrl.trim()) {
-    missing.push("GitHub repo URL");
-  }
 
   if (!draft.github.connection?.installationId && !draft.github.accessToken.trim()) {
     missing.push("GitHub repo access");

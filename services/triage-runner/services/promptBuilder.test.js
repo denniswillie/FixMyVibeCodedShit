@@ -26,6 +26,8 @@ describe("promptBuilder", () => {
     expect(prompt).toContain("https://github.com/acme/api");
     expect(prompt).toContain("vibefix/triage-7-1234567890");
     expect(prompt).toContain("[error] checkout 500");
+    expect(prompt).toContain("Do not create a side branch");
+    expect(prompt).toContain("keep it to a single commit");
     expect(prompt).toContain("\"decision\": \"no_issue\" | \"needs_human\" | \"fix_pushed\"");
   });
 });

@@ -1,4 +1,10 @@
-import type { OnboardingDraft, AuthenticatedUser, GitHubConnection, GitHubRepository } from "@/types/onboarding";
+import type {
+  AgentRunUpdate,
+  OnboardingDraft,
+  AuthenticatedUser,
+  GitHubConnection,
+  GitHubRepository,
+} from "@/types/onboarding";
 
 interface ApiErrorShape {
   error?: string;
@@ -12,6 +18,7 @@ export interface SessionResponse {
 
 export interface OnboardingConfigResponse {
   config: OnboardingDraft;
+  latestRun?: AgentRunUpdate | null;
 }
 
 export interface GitHubReposResponse {

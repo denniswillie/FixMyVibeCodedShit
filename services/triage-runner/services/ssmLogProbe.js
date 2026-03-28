@@ -23,7 +23,7 @@ function sleep(ms) {
   });
 }
 
-export async function fetchDockerLogs(agentConfig, options) {
+export async function runSsmShellCommand(agentConfig, command, options) {
   const client = new SSMClient({
     region: agentConfig.aws.region,
     credentials: buildCredentials(agentConfig),
@@ -34,7 +34,7 @@ export async function fetchDockerLogs(agentConfig, options) {
       DocumentName: options.ssmDocumentName,
       InstanceIds: [agentConfig.aws.instanceId],
       Parameters: {
-        commands: [buildDockerLogCommand(agentConfig.aws)],
+        commands: [command],
       },
     })
   );
@@ -76,4 +76,12 @@ export async function fetchDockerLogs(agentConfig, options) {
   }
 
   throw new Error(`SSM command ${commandId} did not finish before timeout.`);
+}
+
+export async function fetchDockerLogs(agentConfig, options) {
+  return runSsmShellCommand(
+    agentConfig,
+    buildDockerLogCommand(agentConfig.aws),
+    options
+  );
 }

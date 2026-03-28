@@ -93,10 +93,8 @@ describe("App", () => {
     render(<App />);
 
     expect(await screen.findByText(/launch founder/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/repository url/i)).toBeEnabled();
-    expect(screen.getByLabelText(/repository url/i)).toHaveValue(
-      "https://github.com/acme/backend-loaded"
-    );
+    expect(screen.getByLabelText(/docker service/i)).toBeEnabled();
+    expect(screen.queryByLabelText(/repository url/i)).not.toBeInTheDocument();
     expect(screen.getByText(/connected to/i)).toBeInTheDocument();
   });
 

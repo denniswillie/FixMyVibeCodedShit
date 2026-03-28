@@ -14,6 +14,24 @@ function numberFromEnv(name, fallback) {
   return parsed;
 }
 
+function booleanFromEnv(name, fallback = false) {
+  const rawValue = String(process.env[name] ?? "").trim().toLowerCase();
+
+  if (!rawValue) {
+    return fallback;
+  }
+
+  if (["true", "1", "yes", "on"].includes(rawValue)) {
+    return true;
+  }
+
+  if (["false", "0", "no", "off"].includes(rawValue)) {
+    return false;
+  }
+
+  throw new Error(`${name} must be a boolean.`);
+}
+
 export function loadRunnerConfig() {
   return {
     idleSleepMs: numberFromEnv("VIBEFIX_RUNNER_IDLE_SLEEP_MS", 5_000),
@@ -35,6 +53,10 @@ export function loadRunnerConfig() {
     branchPrefix: String(process.env.VIBEFIX_FIX_BRANCH_PREFIX || "vibefix/").trim(),
     gitAuthorName: String(process.env.VIBEFIX_GIT_AUTHOR_NAME || "Vibefix").trim(),
     gitAuthorEmail: String(process.env.VIBEFIX_GIT_AUTHOR_EMAIL || "bot@vibefix.dev").trim(),
+    autoDeployAfterFix: booleanFromEnv("VIBEFIX_AUTO_DEPLOY_AFTER_FIX", false),
+    deployRepoDir: String(process.env.VIBEFIX_DEPLOY_REPO_DIR || "").trim(),
+    deployCommand: String(process.env.VIBEFIX_DEPLOY_COMMAND || "").trim(),
+    targetBranchOverride: String(process.env.VIBEFIX_TARGET_BRANCH_OVERRIDE || "").trim(),
     dryRun: String(process.env.VIBEFIX_DRY_RUN ?? "false").trim().toLowerCase() === "true",
   };
 }

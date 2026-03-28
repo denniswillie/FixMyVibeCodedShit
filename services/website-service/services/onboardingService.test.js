@@ -1,7 +1,8 @@
 const {
   chooseGithubRepository,
   connectGithubInstallationForUser,
-  mapAgentConfigRow
+  mapAgentConfigRow,
+  mapLatestAgentRunRow
 } = require("./onboardingService");
 
 describe("onboardingService", () => {
@@ -130,6 +131,37 @@ describe("onboardingService", () => {
     expect(result.github.connection).toMatchObject({
       installationId: 123,
       accountLogin: "acme"
+    });
+  });
+
+  it("maps the latest agent run into the dashboard shape", () => {
+    expect(
+      mapLatestAgentRunRow({
+        id: "run_123",
+        status: "deployed",
+        classifier_reason: "actionable_error_detected",
+        summary: "Patched the broken profile query and redeployed GitBio.",
+        root_cause: "A null author field crashed the serializer.",
+        fix_summary: "Guarded the serializer and added a fallback.",
+        patch_text: "diff --git a/app.js b/app.js",
+        branch: "master",
+        commit_sha: "abc123def456",
+        pushed: true,
+        deployed: true,
+        error_message: "",
+        started_at: "2026-03-28T15:00:00.000Z",
+        finished_at: "2026-03-28T15:02:00.000Z",
+        deployed_at: "2026-03-28T15:02:00.000Z",
+        created_at: "2026-03-28T15:00:00.000Z"
+      })
+    ).toMatchObject({
+      id: "run_123",
+      status: "deployed",
+      summary: "Patched the broken profile query and redeployed GitBio.",
+      patchText: "diff --git a/app.js b/app.js",
+      branch: "master",
+      commitSha: "abc123def456",
+      deployed: true
     });
   });
 });

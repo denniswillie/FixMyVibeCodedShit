@@ -38,6 +38,24 @@ describe("GitHubDashboard", () => {
         ]}
         config={buildDefaultDraft("Europe/Dublin")}
         isLoading={false}
+        latestRun={{
+          id: "run_123",
+          status: "deployed",
+          classifierReason: "actionable_error_detected",
+          summary: "Patched checkout failures and redeployed GitBio.",
+          rootCause: "Null checkout payload",
+          fixSummary: "Added a serializer guard.",
+          patchText: "diff --git a/app.js b/app.js",
+          branch: "master",
+          commitSha: "abc123def456",
+          pushed: true,
+          deployed: true,
+          errorMessage: "",
+          startedAt: "2026-03-28T15:00:00.000Z",
+          finishedAt: "2026-03-28T15:01:00.000Z",
+          deployedAt: "2026-03-28T15:02:00.000Z",
+          createdAt: "2026-03-28T15:00:00.000Z",
+        }}
         onBackToSetup={vi.fn()}
         onSignOut={vi.fn()}
         onConnectGitHub={vi.fn()}
@@ -47,6 +65,8 @@ describe("GitHubDashboard", () => {
     expect(screen.getByText(/acme\/api/i)).toBeInTheDocument();
     expect(screen.getByText(/acme\/web/i)).toBeInTheDocument();
     expect(screen.getAllByText(/selected repositories/i)).toHaveLength(2);
+    expect(screen.getByText(/patched checkout failures and redeployed gitbio/i)).toBeInTheDocument();
+    expect(screen.getByText(/commit: abc123def456/i)).toBeInTheDocument();
   });
 
   it("can restart the github install flow from the empty state", async () => {
@@ -63,6 +83,7 @@ describe("GitHubDashboard", () => {
         repos={[]}
         config={buildDefaultDraft("Europe/Dublin")}
         isLoading={false}
+        latestRun={null}
         onBackToSetup={vi.fn()}
         onSignOut={vi.fn()}
         onConnectGitHub={onConnectGitHub}

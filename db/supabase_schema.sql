@@ -132,3 +132,106 @@ alter table if exists public.agent_configs
 create index if not exists agent_configs_github_installation_idx
   on public.agent_configs (github_installation_id)
   where github_installation_id is not null;
+
+create table if not exists public.agent_runs (
+  id uuid primary key default gen_random_uuid(),
+  agent_config_id uuid not null references public.agent_configs(id) on delete cascade,
+  user_id bigint not null references public.users(id) on delete cascade,
+  status text not null default 'running',
+  classifier_reason text not null default '',
+  matched_patterns jsonb not null default '[]'::jsonb,
+  log_excerpt text not null default '',
+  summary text not null default '',
+  root_cause text not null default '',
+  fix_summary text not null default '',
+  patch_text text not null default '',
+  verification jsonb not null default '[]'::jsonb,
+  branch text not null default '',
+  commit_sha text not null default '',
+  pushed boolean not null default false,
+  deployed boolean not null default false,
+  deployed_at timestamptz,
+  error_message text not null default '',
+  started_at timestamptz not null default timezone('utc', now()),
+  finished_at timestamptz,
+  created_at timestamptz not null default timezone('utc', now()),
+  updated_at timestamptz not null default timezone('utc', now()),
+  constraint agent_runs_status_check
+    check (status in ('running', 'no_issue', 'needs_human', 'fix_pushed', 'deployed', 'failed'))
+);
+
+create index if not exists agent_runs_user_created_idx
+  on public.agent_runs (user_id, created_at desc);
+
+create index if not exists agent_runs_config_created_idx
+  on public.agent_runs (agent_config_id, created_at desc);
+
+alter table if exists public.agent_runs
+  add column if not exists agent_config_id uuid references public.agent_configs(id) on delete cascade;
+
+alter table if exists public.agent_runs
+  add column if not exists user_id bigint references public.users(id) on delete cascade;
+
+alter table if exists public.agent_runs
+  add column if not exists status text not null default 'running';
+
+alter table if exists public.agent_runs
+  add column if not exists classifier_reason text not null default '';
+
+alter table if exists public.agent_runs
+  add column if not exists matched_patterns jsonb not null default '[]'::jsonb;
+
+alter table if exists public.agent_runs
+  add column if not exists log_excerpt text not null default '';
+
+alter table if exists public.agent_runs
+  add column if not exists summary text not null default '';
+
+alter table if exists public.agent_runs
+  add column if not exists root_cause text not null default '';
+
+alter table if exists public.agent_runs
+  add column if not exists fix_summary text not null default '';
+
+alter table if exists public.agent_runs
+  add column if not exists patch_text text not null default '';
+
+alter table if exists public.agent_runs
+  add column if not exists verification jsonb not null default '[]'::jsonb;
+
+alter table if exists public.agent_runs
+  add column if not exists branch text not null default '';
+
+alter table if exists public.agent_runs
+  add column if not exists commit_sha text not null default '';
+
+alter table if exists public.agent_runs
+  add column if not exists pushed boolean not null default false;
+
+alter table if exists public.agent_runs
+  add column if not exists deployed boolean not null default false;
+
+alter table if exists public.agent_runs
+  add column if not exists deployed_at timestamptz;
+
+alter table if exists public.agent_runs
+  add column if not exists error_message text not null default '';
+
+alter table if exists public.agent_runs
+  add column if not exists started_at timestamptz not null default timezone('utc', now());
+
+alter table if exists public.agent_runs
+  add column if not exists finished_at timestamptz;
+
+alter table if exists public.agent_runs
+  add column if not exists created_at timestamptz not null default timezone('utc', now());
+
+alter table if exists public.agent_runs
+  add column if not exists updated_at timestamptz not null default timezone('utc', now());
+
+alter table if exists public.agent_runs
+  drop constraint if exists agent_runs_status_check;
+
+alter table if exists public.agent_runs
+  add constraint agent_runs_status_check
+    check (status in ('running', 'no_issue', 'needs_human', 'fix_pushed', 'deployed', 'failed'));
